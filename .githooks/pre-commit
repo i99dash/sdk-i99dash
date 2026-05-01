@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# i99dash-sdk pre-commit gate. Mirrors .github/workflows/ci.yml so
+# CI-failing changes bounce locally before push.
+#
+# Policy:
+#   - prettier --check        → whole repo (matches CI).
+#   - eslint                  → src/ (CI runs ``pnpm lint``).
+#   - tsc --noEmit            → whole repo. Catches missing types
+#                                from a rename or a fresh import.
+#   - vitest                  → full suite. 243 tests run in ~1.5s
+#                                so cheap enough to gate every commit.
+#   - check:category-drift    → only when the canonical slug list
+#                                or its consumers changed AND the
+#                                backend-i99dash sibling exists; the
+#                                check is mechanical and skipping
+#                                when the sibling isn't checked out
+#                                avoids false negatives.
+#   - tsup build              → SKIPPED locally. ~5s and CI does it
+#                                anyway; only adds value when DTS
+#                                generation breaks, which tsc catches.
+#
+# Skip with ``git commit --no-verify`` only in genuine emergencies —
+# CI still gates. Or set ``SKIP_PRECOMMIT=1`` for a one-off bypass.
+set -uo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+if [ "${SKIP_PRECOMMIT:-}" = "1" ]; then
+    echo "[pre-commit] SKIP_PRECOMMIT=1 — skipping all checks"
+    exit 0
+fi
+
+# Short-circuit when no source-shaped file is touched (e.g., a
+# README-only or workflow-only commit). Prettier/eslint/tsc/vitest
+# all key off these extensions; running them on an empty change set
+# wastes a few seconds.
+STAGED=()
+while IFS= read -r f; do
+    [ -n "$f" ] && STAGED+=("$f")
+done < <(git diff --cached --name-only --diff-filter=ACMR \
+        | grep -E '\.(ts|tsx|js|jsx|mjs|cjs|json|md|mdx|yml|yaml)$' || true)
+
+if [ ${#STAGED[@]} -eq 0 ]; then
+    echo "[pre-commit] no source-shaped files staged — skipping checks"
+    exit 0
+fi
+
+run_step() {
+    name="$1"; shift
+    echo
+    echo "[pre-commit] ── $name ──"
+    if ! "$@"; then
+        echo
+        echo "[pre-commit] ✗ $name failed — commit blocked."
+        echo "[pre-commit]   Fix the issue above and re-stage, or"
+        echo "[pre-commit]   set SKIP_PRECOMMIT=1 to bypass (CI still gates)."
+        exit 1
+    fi
+}
+
+run_step "prettier (check, whole repo)" pnpm -s format:check
+run_step "eslint (src/)"                pnpm -s lint
+run_step "tsc --noEmit"                 pnpm -s typecheck
+run_step "vitest (full suite)"          pnpm -s test
+
+# Category-slugs drift only matters when the SDK-side JSON or anything
+# importing it changed. Run it conditionally so docs-only or
+# workflow-only commits don't pay for it. Skip silently if the sibling
+# backend-i99dash isn't checked out (CI is the source of truth — local
+# false-negatives would be more annoying than helpful).
+DRIFT_TOUCHED=$(git diff --cached --name-only --diff-filter=ACMR \
+    | grep -E '^src/types/category-slugs\.json$|^scripts/check-category-drift\.mjs$' \
+    || true)
+if [ -n "$DRIFT_TOUCHED" ]; then
+    if [ -d ../backend-i99dash ]; then
+        run_step "category-slugs drift" pnpm -s check:category-drift
+    else
+        echo
+        echo "[pre-commit] ── category-slugs drift ──"
+        echo "[pre-commit]   skipped: ../backend-i99dash not checked out (CI will gate)"
+    fi
+fi
+
+echo
+echo "[pre-commit] ✓ all checks passed"
+echo "[pre-commit]   note: ``pnpm build`` is CI-only; tsc covers most"
+echo "[pre-commit]   build-time breakage."

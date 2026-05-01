@@ -55,6 +55,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "prepare": "bash .githooks/install.sh 2>/dev/null || true",
     "build": "tsup",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
