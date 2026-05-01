@@ -22,7 +22,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { FixtureSchema } from '@i99dash/sdk-dev-server';
+import { FixtureSchema } from '../../dev-server/index.js';
 import { MiniAppManifestSchema } from '../../types/index.js';
 
 import { loadManifest, loadSdkConfig } from '../config/load.js';

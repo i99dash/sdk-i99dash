@@ -6,15 +6,21 @@ import { defineConfig } from 'tsup';
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/cli.ts'],
+  entry: {
+    index: 'src/index.ts',
+    cli: 'src/cli.ts',
+    'dev-server': 'src/dev-server/index.ts',
+    react: 'src/react/index.tsx',
+  },
   format: ['esm', 'cjs'],
   dts: true,
   sourcemap: true,
   clean: true,
-  // Native binding (keytar) and peer (zod) stay external so the
-  // bundle doesn't try to inline either. Other deps inline freely;
-  // tree-shaking on the consumer side handles per-entry stripping.
-  external: ['keytar', 'zod'],
+  // Native binding (keytar) and peers (zod, react) stay external so
+  // the bundle doesn't try to inline either. Other deps inline
+  // freely; tree-shaking on the consumer side handles per-entry
+  // stripping.
+  external: ['keytar', 'zod', 'react', 'react/jsx-runtime'],
   // Two post-build steps:
   //   1. Copy the placeholder icon the `init` command scaffolds.
   //   2. Prepend `#!/usr/bin/env node` to dist/cli.js + dist/cli.cjs.

@@ -204,7 +204,7 @@ function htmlTemplate(): string {
   <h2>Fuel stations</h2>
   <pre id="fuel">loading…</pre>
   <script type="module">
-    import { MiniAppClient } from 'https://esm.sh/@i99dash/sdk';
+    import { MiniAppClient } from 'https://esm.sh/i99dash';
 
     async function main() {
       const client = MiniAppClient.fromWindow();

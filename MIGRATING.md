@@ -1,6 +1,8 @@
 # Migrating from the old `@i99dash/*` packages
 
-The four packages — `@i99dash/sdk-types`, `@i99dash/sdk`, `@i99dash/admin-sdk`, `@i99dash/sdk-cli` — have been consolidated into a single `i99dash` package on public npm. The old packages are deprecated; new releases publish only the consolidated one.
+All six packages — `@i99dash/sdk-types`, `@i99dash/sdk`, `@i99dash/admin-sdk`, `@i99dash/sdk-cli`, `@i99dash/sdk-react`, `@i99dash/sdk-dev-server` — have been consolidated into a single `i99dash` package on public npm. The old packages are deprecated; new releases publish only the consolidated one.
+
+The runtime client + admin client + types live at the root entry. The Node-only dev-server and the React bindings live behind subpaths (`i99dash/dev-server`, `i99dash/react`) so a browser bundle that only imports `MiniAppClient` doesn't pull in `fastify`, and a Node CLI doesn't pull in `react-dom`.
 
 This guide shows the mechanical migration. Pre-release; no compat shim. After the swap your code looks identical except for the import paths.
 
@@ -11,11 +13,13 @@ This guide shows the mechanical migration. Pre-release; no compat shim. After th
    "dependencies": {
 -    "@i99dash/sdk-types": "^0.1.8",
 -    "@i99dash/sdk": "^0.1.8",
--    "@i99dash/admin-sdk": "^0.1.0"
+-    "@i99dash/admin-sdk": "^0.1.0",
+-    "@i99dash/sdk-react": "^0.1.0"
 +    "i99dash": "^1.0.0"
    },
    "devDependencies": {
--    "@i99dash/sdk-cli": "^0.1.14"
+-    "@i99dash/sdk-cli": "^0.1.14",
+-    "@i99dash/sdk-dev-server": "^0.1.10"
 +    "i99dash": "^1.0.0"
    }
 }
@@ -27,16 +31,18 @@ This guide shows the mechanical migration. Pre-release; no compat shim. After th
 
 ```bash
 # Run from your repo root.
-grep -rl '@i99dash/\(sdk\|sdk-types\|admin-sdk\)' src/ \
+grep -rl '@i99dash/\(sdk\|sdk-types\|admin-sdk\|sdk-react\|sdk-dev-server\)' src/ \
   | xargs sed -i '' \
       -e "s|@i99dash/sdk-types|i99dash|g" \
       -e "s|@i99dash/admin-sdk|i99dash|g" \
+      -e "s|@i99dash/sdk-dev-server|i99dash/dev-server|g" \
+      -e "s|@i99dash/sdk-react|i99dash/react|g" \
       -e "s|@i99dash/sdk|i99dash|g"
 ```
 
 (Drop the `''` from `sed -i` on Linux.)
 
-Order matters: `@i99dash/sdk-types` and `@i99dash/admin-sdk` are subsets of `@i99dash/sdk` for sed's purposes — substitute the longer names first.
+Order matters: longer names (`@i99dash/sdk-types`, `@i99dash/sdk-react`, `@i99dash/sdk-dev-server`, `@i99dash/admin-sdk`) all share a `@i99dash/sdk` prefix — substitute the longer names first so the prefix-only rule doesn't eat them.
 
 ## Step 3 — rename CLI invocations
 
@@ -74,18 +80,20 @@ pnpm test                   # everything still green
 
 Every public symbol the old four packages exported is reachable from `i99dash`. Concretely:
 
-| Old import                                                   | New import                                        |
-| ------------------------------------------------------------ | ------------------------------------------------- |
-| `import { MiniAppClient } from '@i99dash/sdk'`               | `import { MiniAppClient } from 'i99dash'`         |
-| `import { AdminClient } from '@i99dash/admin-sdk'`           | `import { AdminClient } from 'i99dash'`           |
-| `import { MiniAppManifestSchema } from '@i99dash/sdk-types'` | `import { MiniAppManifestSchema } from 'i99dash'` |
-| `sdk-i99dash login`                                          | `i99dash login`                                   |
+| Old import                                                   | New import                                            |
+| ------------------------------------------------------------ | ----------------------------------------------------- |
+| `import { MiniAppClient } from '@i99dash/sdk'`               | `import { MiniAppClient } from 'i99dash'`             |
+| `import { AdminClient } from '@i99dash/admin-sdk'`           | `import { AdminClient } from 'i99dash'`               |
+| `import { MiniAppManifestSchema } from '@i99dash/sdk-types'` | `import { MiniAppManifestSchema } from 'i99dash'`     |
+| `import { MiniAppProvider } from '@i99dash/sdk-react'`       | `import { MiniAppProvider } from 'i99dash/react'`     |
+| `import { startDevServer } from '@i99dash/sdk-dev-server'`   | `import { startDevServer } from 'i99dash/dev-server'` |
+| `sdk-i99dash login`                                          | `i99dash login`                                       |
 
-`@i99dash/sdk-react` and `@i99dash/sdk-dev-server` keep their own package names (different audiences) — their next release switches their internal dep from `@i99dash/sdk` to `i99dash`. Your app code imports them by their original names.
+The Node-only dev-server and the React bindings sit behind subpath exports (`i99dash/dev-server`, `i99dash/react`) so a browser bundle that only imports `MiniAppClient` from `i99dash` tree-shakes both away. Your `package.json` still lists `i99dash` once.
 
 ## Why?
 
-Privileged developers were installing four packages to get the full toolchain: `@i99dash/sdk` + `@i99dash/admin-sdk` + `@i99dash/sdk-types` (transitive) + `@i99dash/sdk-cli`. Each had its own version, its own `.npmrc` setup (admin-sdk on private), its own deprecation lifecycle. One package is simpler.
+Privileged developers were installing six packages to get the full toolchain: `@i99dash/sdk` + `@i99dash/admin-sdk` + `@i99dash/sdk-types` (transitive) + `@i99dash/sdk-cli` + `@i99dash/sdk-react` + `@i99dash/sdk-dev-server`. Each had its own version, its own `.npmrc` setup (admin-sdk on private), its own deprecation lifecycle. One package is simpler.
 
 Tradeoff: install-time access gating that the private GitHub Packages registry provided for `@i99dash/admin-sdk` is gone. The host's runtime gate remains authoritative — reading admin type signatures doesn't grant the ability to call them.
 

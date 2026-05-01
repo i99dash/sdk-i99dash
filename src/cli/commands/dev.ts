@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import open from 'open';
-import { startDevServer, defaultDevServerState } from '@i99dash/sdk-dev-server';
+import { startDevServer, defaultDevServerState } from '../../dev-server/index.js';
 
 import { loadSdkConfig } from '../config/load.js';
 import { logger } from '../util/logger.js';
