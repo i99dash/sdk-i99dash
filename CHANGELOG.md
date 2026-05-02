@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.0](https://github.com/i99dash/i99dash-sdk/compare/v1.3.0...v1.4.0) (2026-05-02)
+
+
+### Features
+
+* **examples:** dash-wallpaper — three-screen ambient customizer ([#7](https://github.com/i99dash/i99dash-sdk/issues/7)) ([6bc28e7](https://github.com/i99dash/i99dash-sdk/commit/6bc28e764c83b036d6c2e6429efceced374ef4e3))
+
 ## [1.3.0](https://github.com/i99dash/i99dash-sdk/compare/v1.2.0...v1.3.0) (2026-05-02)
 
 
