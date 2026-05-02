@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cluster Remote</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b0f17;
+        color: #e6e9ef;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        overflow: hidden;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #header {
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 14px;
+      }
+      #header h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      #header .version {
+        font-size: 11px;
+        color: #6c7a93;
+        background: #1a2233;
+        padding: 2px 8px;
+        border-radius: 10px;
+      }
+      .pill {
+        padding: 3px 10px;
+        border-radius: 12px;
+        background: #1a2233;
+        font-size: 12px;
+      }
+      .pill.ok {
+        background: #134e2a;
+        color: #b9f0c5;
+      }
+      .pill.err {
+        background: #4e1313;
+        color: #f0b9b9;
+      }
+      .pill.info {
+        background: #1a3550;
+        color: #b9d8f0;
+      }
+      #toolbar {
+        padding: 0 16px 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      label {
+        font-size: 13px;
+        color: #95a3b9;
+      }
+      select {
+        background: #11192a;
+        color: #e6e9ef;
+        border: 1px solid #1f2b44;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 13px;
+      }
+      #quick {
+        padding: 0 16px 8px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      #quick button {
+        background: #11192a;
+        color: #e6e9ef;
+        border: 1px solid #1f2b44;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      #quick button:active {
+        background: #1a2233;
+      }
+      #quick button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      #pad {
+        margin: 0 16px 16px;
+        flex: 1;
+        background: linear-gradient(145deg, #11192a, #0d1422);
+        border: 1px solid #1f2b44;
+        border-radius: 12px;
+        position: relative;
+        height: calc(100vh - 280px);
+        min-height: 280px;
+      }
+      #pad .hint {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 24px;
+        color: #6c7a93;
+        font-size: 14px;
+        pointer-events: none;
+      }
+      #log {
+        margin: 0 16px 16px;
+        background: #0f141d;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 11px;
+        max-height: 100px;
+        overflow: auto;
+        white-space: pre-wrap;
+        color: #95a3b9;
+        font-family: ui-monospace, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="header">
+      <h1>Cluster Remote</h1>
+      <span class="version">v0.1.1</span>
+      <span class="pill" id="bridge">bridge: …</span>
+      <span class="pill" id="cursor-pill">cursor: idle</span>
+    </div>
+    <div id="toolbar">
+      <label
+        >target display
+        <select id="target"></select>
+      </label>
+      <label
+        >cursor style
+        <select id="style">
+          <option value="dot">dot</option>
+          <option value="glow" selected>glow</option>
+          <option value="ring">ring</option>
+        </select>
+      </label>
+    </div>
+    <div id="quick">
+      <button data-preset="tap-center">Tap center</button>
+      <button data-preset="tap-top-left">Tap top-left</button>
+      <button data-preset="tap-bottom-right">Tap bottom-right</button>
+      <button data-preset="swipe-left">Swipe left</button>
+      <button data-preset="swipe-right">Swipe right</button>
+      <button data-preset="long-press">Long press center</button>
+    </div>
+    <div id="pad">
+      <div class="hint">
+        Drag here for free-form taps.<br />
+        Or use the preset buttons above.
+      </div>
+    </div>
+    <pre id="log"></pre>
+    <script>
+      // Raw-bridge usage: `flutter_inappwebview.callHandler(name, ...)` is
+      // what the host injects. The SDK package wraps these with typed
+      // helpers (`client.cursor.attach`, `client.gesture.tap`); this
+      // example uses the raw API to keep the bundle a single static
+      // HTML file with no build step.
+      (function () {
+        var bridge = window.flutter_inappwebview;
+        var pill = function (id, text, kind) {
+          var el = document.getElementById(id);
+          el.textContent = text;
+          el.className = 'pill ' + (kind || '');
+        };
+        var log = function (msg) {
+          var el = document.getElementById('log');
+          var t = new Date().toISOString().slice(11, 19);
+          el.textContent += t + ' ' + msg + '\n';
+          el.scrollTop = el.scrollHeight;
+        };
+        if (!bridge) {
+          pill('bridge', 'bridge: missing', 'err');
+          log('No host bridge — run inside i99dash.');
+          return;
+        }
+        pill('bridge', 'bridge: ok', 'ok');
+
+        async function call(name, args) {
+          var raw = await bridge.callHandler(name, {
+            params: args || {},
+            idempotencyKey: 'k' + Math.random().toString(16).slice(2),
+          });
+          if (raw && raw.success === false) {
+            throw new Error(raw.error.code + ': ' + raw.error.message);
+          }
+          return (raw && raw.data) || raw;
+        }
+
+        var targetSel = document.getElementById('target');
+        var styleSel = document.getElementById('style');
+        var pad = document.getElementById('pad');
+        var attached = false;
+        var targetDisplay = null;
+
+        async function loadDisplays() {
+          var r = await call('display.list');
+          var displays = (r && r.displays) || [];
+          targetSel.innerHTML = '';
+          displays.forEach(function (d) {
+            if (d.isDefault) return; // skip IVI itself
+            var opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = 'id=' + d.id + ' · ' + d.name;
+            targetSel.appendChild(opt);
+          });
+          if (targetSel.options.length > 0) targetSel.selectedIndex = 0;
+          targetDisplay = parseInt(targetSel.value, 10);
+          log('displays loaded; target=' + targetDisplay);
+        }
+
+        targetSel.addEventListener('change', function () {
+          targetDisplay = parseInt(targetSel.value, 10);
+          log('target → ' + targetDisplay);
+        });
+
+        styleSel.addEventListener('change', async function () {
+          if (!attached) return;
+          try {
+            await call('cursor.style', { style: styleSel.value });
+            log('cursor.style → ' + styleSel.value);
+          } catch (e) {
+            log('cursor.style failed: ' + (e && e.message));
+          }
+        });
+
+        // Preset coords assume a 1920x720 cluster — the common BYD
+        // Leopard 8 cluster resolution. Real apps would size dynamically
+        // off `client.display.list()`'s width/height; we hardcode for
+        // the demo so the buttons stay readable.
+        var W = 1920;
+        var H = 720;
+        var presets = {
+          'tap-center': function () {
+            return call('gesture.tap', {
+              displayId: targetDisplay,
+              x: W / 2,
+              y: H / 2,
+            });
+          },
+          'tap-top-left': function () {
+            return call('gesture.tap', {
+              displayId: targetDisplay,
+              x: 100,
+              y: 100,
+            });
+          },
+          'tap-bottom-right': function () {
+            return call('gesture.tap', {
+              displayId: targetDisplay,
+              x: W - 100,
+              y: H - 100,
+            });
+          },
+          'swipe-left': function () {
+            return call('gesture.swipe', {
+              displayId: targetDisplay,
+              fromX: W - 100,
+              fromY: H / 2,
+              toX: 100,
+              toY: H / 2,
+              durationMs: 300,
+            });
+          },
+          'swipe-right': function () {
+            return call('gesture.swipe', {
+              displayId: targetDisplay,
+              fromX: 100,
+              fromY: H / 2,
+              toX: W - 100,
+              toY: H / 2,
+              durationMs: 300,
+            });
+          },
+          'long-press': function () {
+            return call('gesture.longPress', {
+              displayId: targetDisplay,
+              x: W / 2,
+              y: H / 2,
+              durationMs: 1000,
+            });
+          },
+        };
+
+        document.getElementById('quick').addEventListener('click', async function (e) {
+          var btn = e.target.closest('button[data-preset]');
+          if (!btn) return;
+          var name = btn.dataset.preset;
+          var fn = presets[name];
+          if (!fn) return;
+          btn.disabled = true;
+          try {
+            var r = await fn();
+            log(name + ' → ' + JSON.stringify(r));
+          } catch (err) {
+            log(name + ' failed: ' + (err && err.message));
+          } finally {
+            btn.disabled = false;
+          }
+        });
+
+        async function ensureAttached() {
+          if (attached) return;
+          var r = await call('cursor.attach', {
+            targetDisplayId: targetDisplay,
+            style: styleSel.value,
+          });
+          attached = !!(r && r.ok);
+          if (attached) pill('cursor-pill', 'cursor: attached', 'ok');
+          else pill('cursor-pill', 'cursor: refused', 'err');
+        }
+
+        function padToCursor(e) {
+          // Cursor lives on the IVI in window coords (caller's pad
+          // doesn't fill the screen; the cursor is global, so use
+          // page coords).
+          return { x: e.clientX, y: e.clientY };
+        }
+
+        function padToCluster(e) {
+          // Translate pad-relative coords to a 1920x720 cluster.
+          // Real translation depends on the chosen display's
+          // dimensions; this is a basic linear map for the demo.
+          var rect = pad.getBoundingClientRect();
+          var fx = (e.clientX - rect.left) / Math.max(1, rect.width);
+          var fy = (e.clientY - rect.top) / Math.max(1, rect.height);
+          return {
+            x: Math.round(Math.min(Math.max(fx, 0), 1) * 1920),
+            y: Math.round(Math.min(Math.max(fy, 0), 1) * 720),
+          };
+        }
+
+        var dragging = false;
+
+        pad.addEventListener('pointerdown', async function (e) {
+          dragging = true;
+          pad.setPointerCapture(e.pointerId);
+          try {
+            await ensureAttached();
+            var p = padToCursor(e);
+            await call('cursor.move', p);
+          } catch (err) {
+            log('attach/move failed: ' + (err && err.message));
+          }
+        });
+
+        pad.addEventListener('pointermove', function (e) {
+          if (!dragging) return;
+          var p = padToCursor(e);
+          // Hot-path; don't await — fire and forget at 60Hz.
+          call('cursor.move', p).catch(function () {});
+        });
+
+        pad.addEventListener('pointerup', async function (e) {
+          if (!dragging) return;
+          dragging = false;
+          pad.releasePointerCapture(e.pointerId);
+          var c = padToCluster(e);
+          try {
+            var r = await call('gesture.tap', {
+              displayId: targetDisplay,
+              x: c.x,
+              y: c.y,
+            });
+            log(
+              'tap displayId=' +
+                targetDisplay +
+                ' (' +
+                c.x +
+                ',' +
+                c.y +
+                ') → ' +
+                JSON.stringify(r),
+            );
+          } catch (err) {
+            log('gesture.tap failed: ' + (err && err.message));
+          }
+        });
+
+        loadDisplays().catch(function (e) {
+          log('display.list failed: ' + (e && e.message));
+        });
+      })();
+    </script>
+  </body>
+</html>

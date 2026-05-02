@@ -1,0 +1,16 @@
+{
+  "_comment": "Static bundle — `appRoot` is `./src` (HTML / icon files only). publish copies src/* → dist/ then stamps manifest.json. No buildCommand because there's no transpile step.",
+  "appRoot": "./src",
+  "dev": {
+    "port": 5175,
+    "host": "127.0.0.1",
+    "context": {
+      "userId": "demo-user-01",
+      "activeCarId": "VIN-DEMO-0001",
+      "locale": "en",
+      "isDark": true,
+      "appVersion": "0.1.0",
+      "appId": "cluster-hello-world"
+    }
+  }
+}

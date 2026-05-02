@@ -1,0 +1,18 @@
+{
+  "id": "adb-helper",
+  "name": {
+    "en": "AdbHelper",
+    "ar": "أدوات النظام"
+  },
+  "description": {
+    "en": "Diagnostic + maintenance tools for this head-unit. Manage installed apps, view logs, restart services, browse files. Privileged operations (cmdExec.*) require an installed cert.",
+    "ar": "أدوات التشخيص والصيانة لوحدة الرأس هذه. إدارة التطبيقات المثبتة، وعرض السجلات، وإعادة تشغيل الخدمات، وتصفح الملفات."
+  },
+  "icon": "./assets/icon.svg",
+  "url": "https://miniapps.i99dash.app/adb-helper/",
+  "version": "0.1.1",
+  "minHostVersion": "0.0.2",
+  "category": "developer",
+  "safeWhileDriving": false,
+  "requiredPermissions": ["cmdExec.read", "cmdExec.control"]
+}

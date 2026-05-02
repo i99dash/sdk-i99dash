@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect x="2" y="10" width="60" height="40" rx="6" fill="#1a3550" stroke="#58c7ff" stroke-width="2"/>
+  <rect x="10" y="18" width="44" height="20" rx="2" fill="#0b0f17"/>
+  <text x="32" y="34" text-anchor="middle" fill="#58c7ff" font-family="monospace" font-size="12" font-weight="700">CLUSTER</text>
+  <rect x="22" y="50" width="20" height="3" rx="1" fill="#95a3b9"/>
+  <rect x="18" y="55" width="28" height="3" rx="1" fill="#95a3b9"/>
+</svg>

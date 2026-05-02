@@ -1,0 +1,16 @@
+{
+  "name": "i99dash-example-cluster-remote",
+  "version": "0.1.2",
+  "private": true,
+  "description": "Phase B reference mini-app — touchpad UI that mirrors taps + swipes onto the instrument cluster (or any non-default display) via the native-capability gesture-dispatch family.",
+  "type": "module",
+  "scripts": {
+    "dev": "i99dash dev",
+    "validate": "i99dash validate",
+    "build": "i99dash build",
+    "publish": "i99dash publish"
+  },
+  "devDependencies": {
+    "i99dash": "^1.1.0"
+  }
+}

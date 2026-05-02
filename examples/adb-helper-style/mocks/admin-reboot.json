@@ -1,0 +1,10 @@
+{
+  "match": { "templateId": "sys.reboot" },
+  "response": {
+    "success": false,
+    "error": {
+      "code": "step_up_required",
+      "message": "step-up auth required for this op (mock — host returns this until the user re-auths)"
+    }
+  }
+}

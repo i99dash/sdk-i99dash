@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 960">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0f17"/>
+      <stop offset="1" stop-color="#11192a"/>
+    </linearGradient>
+  </defs>
+  <rect width="540" height="960" fill="url(#g)"/>
+  <text x="270" y="120" text-anchor="middle" fill="#e6e9ef" font-family="system-ui,sans-serif" font-size="36" font-weight="600">Cluster Remote</text>
+  <text x="270" y="170" text-anchor="middle" fill="#95a3b9" font-family="system-ui,sans-serif" font-size="20">Touchpad → cluster gestures</text>
+
+  <!-- Toolbar mock -->
+  <rect x="32" y="220" width="216" height="44" rx="8" fill="#11192a" stroke="#1f2b44"/>
+  <text x="48" y="248" fill="#95a3b9" font-family="system-ui,sans-serif" font-size="14">target display: id=2 · fse</text>
+  <rect x="296" y="220" width="156" height="44" rx="8" fill="#11192a" stroke="#1f2b44"/>
+  <text x="312" y="248" fill="#95a3b9" font-family="system-ui,sans-serif" font-size="14">style: glow</text>
+
+  <!-- Quick taps row -->
+  <g font-family="system-ui,sans-serif" font-size="13" fill="#e6e9ef">
+    <rect x="32" y="288" width="100" height="36" rx="8" fill="#11192a" stroke="#1f2b44"/>
+    <text x="82" y="312" text-anchor="middle">Tap center</text>
+    <rect x="148" y="288" width="120" height="36" rx="8" fill="#11192a" stroke="#1f2b44"/>
+    <text x="208" y="312" text-anchor="middle">Tap top-left</text>
+    <rect x="284" y="288" width="148" height="36" rx="8" fill="#11192a" stroke="#1f2b44"/>
+    <text x="358" y="312" text-anchor="middle">Tap bottom-right</text>
+  </g>
+
+  <!-- Touchpad -->
+  <rect x="32" y="356" width="476" height="476" rx="12" fill="#11192a" stroke="#1f2b44"/>
+  <circle cx="270" cy="594" r="28" fill="#58c7ff" opacity="0.3"/>
+  <circle cx="270" cy="594" r="10" fill="#c8a8ff"/>
+  <text x="270" y="780" text-anchor="middle" fill="#6c7a93" font-family="system-ui,sans-serif" font-size="14">Drag here · release fires gesture.tap</text>
+
+  <!-- Log -->
+  <rect x="32" y="864" width="476" height="64" rx="8" fill="#0f141d"/>
+  <text x="44" y="888" fill="#95a3b9" font-family="ui-monospace,monospace" font-size="11">19:12:03 tap-center → {dispatched: true}</text>
+  <text x="44" y="908" fill="#95a3b9" font-family="ui-monospace,monospace" font-size="11">19:12:08 cursor.move x=270 y=594</text>
+</svg>
