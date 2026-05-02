@@ -3,3 +3,8 @@ node_modules/
 coverage/
 pnpm-lock.yaml
 *.tsbuildinfo
+# Release-please owns CHANGELOG.md. Its generated format is consistent
+# but doesn't match prettier's defaults, and the file is rewritten on
+# every release — fighting prettier vs release-please there just
+# churns CI red on every release commit.
+CHANGELOG.md
