@@ -280,39 +280,48 @@
       }
 
       /* Gradient ------------------------------------------------ */
-      .gradient-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        margin-bottom: 14px;
-      }
-      .colorpick {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
-        background: var(--bg-2);
-        border: 1px solid var(--border);
-        border-radius: var(--r-md);
-      }
-      .colorpick label {
-        font-size: 12px;
-        color: var(--text-1);
-        flex: 1;
-      }
-      .colorpick input[type='color'] {
-        width: 32px;
-        height: 32px;
-        border: 0;
-        background: none;
-        padding: 0;
-        cursor: pointer;
-      }
       .gradient-preview {
         height: 140px;
         border-radius: var(--r-md);
-        margin-bottom: 12px;
+        margin-bottom: 14px;
         border: 1px solid var(--border);
+      }
+      .swatch-row {
+        margin-bottom: 14px;
+      }
+      .swatch-label {
+        font-size: 12px;
+        color: var(--text-1);
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .swatch-hex {
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        font-size: 11px;
+        color: var(--text-2);
+      }
+      .swatches {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 6px;
+      }
+      .swatch {
+        aspect-ratio: 1 / 1;
+        border-radius: 8px;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition:
+          transform 0.12s ease,
+          border 0.12s ease;
+      }
+      .swatch:active {
+        transform: scale(0.92);
+      }
+      .swatch.selected {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(88, 199, 255, 0.18);
       }
       .gradient-controls {
         display: flex;
@@ -494,19 +503,25 @@
           </div>
         </div>
 
-        <!-- Gradient -->
+        <!-- Gradient — tap-driven swatches (native <input type=color>
+             doesn't open a picker in the IVI WebView). -->
         <div class="panel" data-panel="gradient">
           <div class="gradient-preview" id="gradPreview"></div>
-          <div class="gradient-row">
-            <div class="colorpick">
-              <label>Start</label>
-              <input type="color" id="gradC1" value="#0f1c33" />
+
+          <div class="swatch-row">
+            <div class="swatch-label">
+              Start <span class="swatch-hex" id="gradC1Hex">#0f1c33</span>
             </div>
-            <div class="colorpick">
-              <label>End</label>
-              <input type="color" id="gradC2" value="#c8a8ff" />
-            </div>
+            <div class="swatches" id="gradC1Swatches"></div>
           </div>
+
+          <div class="swatch-row">
+            <div class="swatch-label">
+              End <span class="swatch-hex" id="gradC2Hex">#c8a8ff</span>
+            </div>
+            <div class="swatches" id="gradC2Swatches"></div>
+          </div>
+
           <div class="gradient-controls">
             <button class="gradient-btn on" data-angle="135">Diagonal</button>
             <button class="gradient-btn" data-angle="0">Top → Bottom</button>
@@ -721,9 +736,36 @@
         }
 
         // ── Gradient ────────────────────────────────────────
-        var gC1 = $('#gradC1'),
-          gC2 = $('#gradC2'),
-          gPrev = $('#gradPreview');
+        // 20-color curated palette — covers the obvious wallpaper
+        // moods (deep blues / purples, warm sunsets, neons,
+        // monochromes). The native `<input type=color>` doesn't open
+        // a picker on the IVI WebView; tap-friendly swatches are
+        // both more reliable and more car-ergonomic anyway.
+        var SWATCHES = [
+          '#0f1c33',
+          '#1a0a3a',
+          '#4a0e6f',
+          '#001f1a',
+          '#024d4d',
+          '#00bfa5',
+          '#c8a8ff',
+          '#1a0838',
+          '#c52a4d',
+          '#ff8e3c',
+          '#ffd166',
+          '#000000',
+          '#1a1a1a',
+          '#404040',
+          '#ffffff',
+          '#0a0e16',
+          '#58c7ff',
+          '#b9f0c5',
+          '#f0b9b9',
+          '#1a2848',
+        ];
+        var gPrev = $('#gradPreview');
+        var gC1Hex = $('#gradC1Hex'),
+          gC2Hex = $('#gradC2Hex');
 
         function gradientCss(g) {
           if (g.angle === 'radial') {
@@ -732,20 +774,32 @@
           return 'linear-gradient(' + g.angle + 'deg, ' + g.c1 + ', ' + g.c2 + ')';
         }
 
+        function renderSwatches(hostId, slot) {
+          var host = $('#' + hostId);
+          host.innerHTML = '';
+          SWATCHES.forEach(function (hex) {
+            var sw = document.createElement('div');
+            sw.className = 'swatch';
+            if (hex === state.gradient[slot]) sw.classList.add('selected');
+            sw.style.background = hex;
+            sw.dataset.hex = hex;
+            sw.addEventListener('click', function () {
+              state.gradient[slot] = hex;
+              renderSwatches(hostId, slot); // refresh selected ring
+              refreshGradient();
+            });
+            host.appendChild(sw);
+          });
+        }
+
         function refreshGradient() {
           gPrev.style.background = gradientCss(state.gradient);
+          gC1Hex.textContent = state.gradient.c1;
+          gC2Hex.textContent = state.gradient.c2;
           state.mode = 'gradient';
           updateUI();
         }
 
-        gC1.addEventListener('input', function () {
-          state.gradient.c1 = gC1.value;
-          refreshGradient();
-        });
-        gC2.addEventListener('input', function () {
-          state.gradient.c2 = gC2.value;
-          refreshGradient();
-        });
         $$('.gradient-btn').forEach(function (b) {
           b.addEventListener('click', function () {
             $$('.gradient-btn').forEach(function (x) {
@@ -757,7 +811,10 @@
             refreshGradient();
           });
         });
+
         // initial paint
+        renderSwatches('gradC1Swatches', 'c1');
+        renderSwatches('gradC2Swatches', 'c2');
         refreshGradient();
 
         // ── Apply / Clear ──────────────────────────────────
