@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 960">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0e16"/>
+      <stop offset="1" stop-color="#050810"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="0.2" cy="0.2" r="0.4">
+      <stop offset="0" stop-color="#58c7ff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#58c7ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.8" cy="0.8" r="0.4">
+      <stop offset="0" stop-color="#c8a8ff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#c8a8ff" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="nebulaG" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f1c33"/>
+      <stop offset="0.6" stop-color="#1a0a3a"/>
+      <stop offset="1" stop-color="#4a0e6f"/>
+    </linearGradient>
+    <linearGradient id="auroraG" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#001f1a"/>
+      <stop offset="0.5" stop-color="#00bfa5"/>
+      <stop offset="1" stop-color="#c8a8ff"/>
+    </linearGradient>
+    <linearGradient id="sunsetG" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a0838"/>
+      <stop offset="0.4" stop-color="#c52a4d"/>
+      <stop offset="1" stop-color="#ffd166"/>
+    </linearGradient>
+    <linearGradient id="circuitG" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0e16"/>
+      <stop offset="1" stop-color="#1a2848"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="540" height="960" fill="url(#bg)"/>
+  <rect width="540" height="960" fill="url(#glow1)"/>
+  <rect width="540" height="960" fill="url(#glow2)"/>
+
+  <!-- Header -->
+  <text x="32" y="56" fill="#e6e9ef" font-family="system-ui,sans-serif" font-size="24" font-weight="600">Dash Wallpaper</text>
+  <rect x="220" y="38" width="48" height="22" rx="11" fill="rgba(88,199,255,0.1)"/>
+  <text x="244" y="54" text-anchor="middle" fill="#58c7ff" font-family="system-ui,sans-serif" font-size="11" font-weight="500">v0.1.0</text>
+  <text x="508" y="56" text-anchor="end" fill="#95a3b9" font-family="system-ui,sans-serif" font-size="13"><tspan fill="#58c7ff" font-weight="600">2</tspan> screens selected</text>
+
+  <!-- Display chips -->
+  <g font-family="system-ui,sans-serif" font-size="13">
+    <rect x="32" y="88" width="118" height="40" rx="12" fill="#11192a" stroke="rgba(255,255,255,0.08)"/>
+    <circle cx="50" cy="108" r="4" fill="#6c7a93"/>
+    <text x="64" y="113" fill="#95a3b9">Head Unit</text>
+
+    <rect x="158" y="88" width="118" height="40" rx="12" fill="rgba(88,199,255,0.12)" stroke="#58c7ff"/>
+    <circle cx="176" cy="108" r="4" fill="#58c7ff"/>
+    <text x="190" y="113" fill="#e6e9ef">Passenger</text>
+
+    <rect x="284" y="88" width="118" height="40" rx="12" fill="rgba(88,199,255,0.12)" stroke="#58c7ff"/>
+    <circle cx="302" cy="108" r="4" fill="#58c7ff"/>
+    <text x="316" y="113" fill="#e6e9ef">Cluster</text>
+  </g>
+
+  <!-- Tabs -->
+  <line x1="0" y1="172" x2="540" y2="172" stroke="rgba(255,255,255,0.08)"/>
+  <text x="56" y="160" text-anchor="middle" fill="#58c7ff" font-family="system-ui,sans-serif" font-size="13" font-weight="500">Gallery</text>
+  <line x1="32" y1="170" x2="80" y2="170" stroke="#58c7ff" stroke-width="2"/>
+  <text x="130" y="160" text-anchor="middle" fill="#95a3b9" font-family="system-ui,sans-serif" font-size="13" font-weight="500">Upload</text>
+  <text x="208" y="160" text-anchor="middle" fill="#95a3b9" font-family="system-ui,sans-serif" font-size="13" font-weight="500">Gradient</text>
+
+  <!-- Gallery grid (6 presets, 2 cols × 3 rows) -->
+  <g>
+    <rect x="32" y="200" width="232" height="130" rx="12" fill="url(#nebulaG)" stroke="#58c7ff" stroke-width="3"/>
+    <rect x="40" y="306" width="64" height="20" rx="6" fill="rgba(0,0,0,0.55)"/>
+    <text x="72" y="320" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="11" font-weight="500">Nebula</text>
+
+    <rect x="276" y="200" width="232" height="130" rx="12" fill="url(#auroraG)"/>
+    <rect x="284" y="306" width="62" height="20" rx="6" fill="rgba(0,0,0,0.55)"/>
+    <text x="315" y="320" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="11" font-weight="500">Aurora</text>
+
+    <rect x="32" y="346" width="232" height="130" rx="12" fill="url(#sunsetG)"/>
+    <rect x="40" y="452" width="62" height="20" rx="6" fill="rgba(0,0,0,0.55)"/>
+    <text x="71" y="466" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="11" font-weight="500">Sunset</text>
+
+    <rect x="276" y="346" width="232" height="130" rx="12" fill="url(#circuitG)"/>
+    <circle cx="335" cy="395" r="32" fill="#58c7ff" opacity="0.4"/>
+    <circle cx="455" cy="445" r="22" fill="#c8a8ff" opacity="0.3"/>
+    <rect x="284" y="452" width="74" height="20" rx="6" fill="rgba(0,0,0,0.55)"/>
+    <text x="321" y="466" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="11" font-weight="500">Neon Grid</text>
+
+    <rect x="32" y="492" width="232" height="130" rx="12" fill="#1a1a1a"/>
+    <rect x="40" y="598" width="86" height="20" rx="6" fill="rgba(0,0,0,0.55)"/>
+    <text x="83" y="612" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="11" font-weight="500">Monochrome</text>
+
+    <rect x="276" y="492" width="232" height="130" rx="12" fill="#0a0e16"/>
+    <circle cx="320" cy="540" r="40" fill="rgba(88,199,255,0.4)"/>
+    <circle cx="460" cy="600" r="35" fill="rgba(200,168,255,0.3)"/>
+    <rect x="284" y="598" width="62" height="20" rx="6" fill="rgba(0,0,0,0.55)"/>
+    <text x="315" y="612" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="11" font-weight="500">Circuit</text>
+  </g>
+
+  <!-- Footer -->
+  <line x1="0" y1="864" x2="540" y2="864" stroke="rgba(255,255,255,0.08)"/>
+  <text x="32" y="900" fill="#b9f0c5" font-family="system-ui,sans-serif" font-size="13"><tspan font-weight="600">✓</tspan> <tspan fill="#95a3b9">Selected: Nebula</tspan></text>
+  <rect x="332" y="884" width="76" height="36" rx="12" fill="#11192a"/>
+  <text x="370" y="906" text-anchor="middle" fill="#95a3b9" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Clear</text>
+  <rect x="416" y="884" width="92" height="36" rx="12" fill="url(#auroraG)"/>
+  <text x="462" y="906" text-anchor="middle" fill="#0a0e16" font-family="system-ui,sans-serif" font-size="13" font-weight="700">Apply</text>
+</svg>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Wallpaper</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+        color: #fff;
+        overflow: hidden;
+      }
+      body {
+        position: relative;
+      }
+      #fill {
+        position: absolute;
+        inset: 0;
+      }
+      #fill.image {
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+      }
+      #fill video,
+      #fill img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      /* Built-in gradient presets (mirror the gallery thumbnails) */
+      .preset-nebula {
+        background: linear-gradient(135deg, #0f1c33, #1a0a3a, #4a0e6f);
+      }
+      .preset-aurora {
+        background: linear-gradient(135deg, #001f1a, #024d4d, #00bfa5, #c8a8ff);
+      }
+      .preset-sunset {
+        background: linear-gradient(135deg, #1a0838, #c52a4d, #ff8e3c, #ffd166);
+      }
+      .preset-neon-grid {
+        background:
+          linear-gradient(rgba(88, 199, 255, 0.15) 1px, transparent 1px) 0 0 / 24px 24px,
+          linear-gradient(90deg, rgba(88, 199, 255, 0.15) 1px, transparent 1px) 0 0 / 24px 24px,
+          linear-gradient(135deg, #0a0e16, #1a2848);
+      }
+      .preset-monochrome {
+        background: linear-gradient(135deg, #000, #1a1a1a, #404040);
+      }
+      .preset-circuit {
+        background:
+          radial-gradient(at 20% 20%, rgba(88, 199, 255, 0.4), transparent 30%),
+          radial-gradient(at 80% 80%, rgba(200, 168, 255, 0.3), transparent 30%), #0a0e16;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="fill"></div>
+    <script>
+      // Wallpaper renderer — picks one of three sources from the
+      // route's query string:
+      //
+      //   ?preset=<name>             — gallery preset (CSS class)
+      //   ?src=<dataUrl>&kind=image  — uploaded raster image
+      //   ?src=<dataUrl>&kind=video  — uploaded video (auto-loop, muted)
+      //   ?grad=<cssGradient>        — custom CSS gradient
+      //
+      // Same content shape regardless of which screen this surface
+      // is mounted on (head unit / passenger / cluster).
+      (function () {
+        var fill = document.getElementById('fill');
+        var p = new URLSearchParams(location.search);
+        var preset = p.get('preset');
+        var src = p.get('src');
+        var kind = p.get('kind');
+        var grad = p.get('grad');
+
+        if (preset) {
+          fill.className = 'preset-' + preset;
+          return;
+        }
+        if (grad) {
+          fill.style.background = grad;
+          return;
+        }
+        if (src && kind === 'image') {
+          fill.className = 'image';
+          fill.style.backgroundImage = 'url(' + JSON.stringify(src) + ')';
+          return;
+        }
+        if (src && kind === 'video') {
+          var v = document.createElement('video');
+          v.src = src;
+          v.muted = true;
+          v.loop = true;
+          v.autoplay = true;
+          v.playsInline = true;
+          fill.appendChild(v);
+          return;
+        }
+
+        // Fallback — solid black with a hint
+        fill.style.background = '#0a0e16';
+        var hint = document.createElement('div');
+        hint.textContent = 'No wallpaper source';
+        hint.style.cssText =
+          'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#6c7a93;font-family:system-ui,sans-serif;';
+        fill.appendChild(hint);
+      })();
+    </script>
+  </body>
+</html>

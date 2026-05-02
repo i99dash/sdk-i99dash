@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f1c33"/>
+      <stop offset="1" stop-color="#050810"/>
+    </linearGradient>
+    <linearGradient id="brush" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#58c7ff"/>
+      <stop offset="1" stop-color="#c8a8ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#58c7ff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#58c7ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+
+  <!-- Soft glow -->
+  <circle cx="128" cy="128" r="96" fill="url(#glow)"/>
+
+  <!-- Three stacked screens (the three displays) -->
+  <g stroke="rgba(255,255,255,0.15)" stroke-width="2" fill="rgba(255,255,255,0.06)">
+    <rect x="56" y="60" width="144" height="44" rx="6"/>
+    <rect x="56" y="116" width="144" height="44" rx="6"/>
+    <rect x="56" y="172" width="144" height="44" rx="6"/>
+  </g>
+
+  <!-- Paint stroke crossing the screens -->
+  <path
+    d="M 36 200 C 80 80 180 200 220 70"
+    fill="none"
+    stroke="url(#brush)"
+    stroke-width="14"
+    stroke-linecap="round"/>
+
+  <!-- Brush tip (highlight) -->
+  <circle cx="220" cy="70" r="10" fill="#c8a8ff"/>
+  <circle cx="220" cy="70" r="14" fill="none" stroke="#c8a8ff" stroke-opacity="0.4" stroke-width="2"/>
+</svg>
