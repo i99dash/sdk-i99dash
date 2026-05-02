@@ -5,7 +5,19 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { buildServer } from '../server.js';
 import { FixtureStore } from '../state/fixture-store.js';
+import { NativeCapStore } from '../state/native-cap-store.js';
 import { StateStore } from '../state/state-store.js';
+
+/// Test helper. Each test gets fresh stores so suite order can't
+/// matter — particularly important for the in-memory NativeCapStore
+/// whose surfaces / boot rows accumulate within a server lifetime.
+function makeBuildServerOpts(state: StateStore, dir: string) {
+  return {
+    state,
+    fixtures: new FixtureStore(dir),
+    nativeCap: new NativeCapStore('x'),
+  };
+}
 
 const initialState = {
   context: {
@@ -34,6 +46,7 @@ describe('dev-server routes', () => {
     const app = await buildServer({
       state: new StateStore(initialState),
       fixtures: new FixtureStore(dir),
+      nativeCap: new NativeCapStore('x'),
     });
     try {
       const res = await app.inject({ method: 'GET', url: '/_sdk/bridge.js' });
@@ -48,7 +61,11 @@ describe('dev-server routes', () => {
 
   it('GET /_sdk/context returns current context', async () => {
     const store = new StateStore(initialState);
-    const app = await buildServer({ state: store, fixtures: new FixtureStore(dir) });
+    const app = await buildServer({
+      state: store,
+      fixtures: new FixtureStore(dir),
+      nativeCap: new NativeCapStore('x'),
+    });
     try {
       const res = await app.inject({ method: 'GET', url: '/_sdk/context' });
       expect(res.statusCode).toBe(200);
@@ -62,6 +79,7 @@ describe('dev-server routes', () => {
     const app = await buildServer({
       state: new StateStore(initialState),
       fixtures: new FixtureStore(dir),
+      nativeCap: new NativeCapStore('x'),
     });
     try {
       const res = await app.inject({
@@ -91,6 +109,7 @@ describe('dev-server routes', () => {
     const app = await buildServer({
       state: new StateStore(initialState),
       fixtures,
+      nativeCap: new NativeCapStore('x'),
     });
     try {
       const res = await app.inject({
@@ -108,7 +127,11 @@ describe('dev-server routes', () => {
 
   it('POST /_sdk/state patches and returns new state', async () => {
     const store = new StateStore(initialState);
-    const app = await buildServer({ state: store, fixtures: new FixtureStore(dir) });
+    const app = await buildServer({
+      state: store,
+      fixtures: new FixtureStore(dir),
+      nativeCap: new NativeCapStore('x'),
+    });
     try {
       const res = await app.inject({
         method: 'POST',
@@ -129,6 +152,7 @@ describe('dev-server routes', () => {
     const app = await buildServer({
       state: new StateStore(initialState),
       fixtures: new FixtureStore(dir),
+      nativeCap: new NativeCapStore('x'),
     });
     try {
       const res = await app.inject({
@@ -146,6 +170,7 @@ describe('dev-server routes', () => {
     const app = await buildServer({
       state: new StateStore(initialState),
       fixtures: new FixtureStore(dir),
+      nativeCap: new NativeCapStore('x'),
     });
     try {
       const res = await app.inject({ method: 'GET', url: '/_sdk/inspect' });
@@ -168,7 +193,7 @@ describe('dev-server routes', () => {
     const fixtures = new FixtureStore(dir);
     await fixtures.load();
     const store = new StateStore(initialState);
-    const app = await buildServer({ state: store, fixtures });
+    const app = await buildServer({ state: store, fixtures, nativeCap: new NativeCapStore('x') });
     try {
       // matched
       await app.inject({
@@ -209,7 +234,11 @@ describe('dev-server routes', () => {
 
   it('inspect ring buffer caps at 20 decisions', async () => {
     const store = new StateStore(initialState);
-    const app = await buildServer({ state: store, fixtures: new FixtureStore(dir) });
+    const app = await buildServer({
+      state: store,
+      fixtures: new FixtureStore(dir),
+      nativeCap: new NativeCapStore('x'),
+    });
     try {
       for (let i = 0; i < 25; i++) {
         await app.inject({
@@ -226,6 +255,135 @@ describe('dev-server routes', () => {
       // Oldest dropped — first remaining entry should be the 6th request
       expect(body.decisions[0]?.request.path).toBe('/api/v1/n5');
       expect(body.decisions[19]?.request.path).toBe('/api/v1/n24');
+    } finally {
+      await app.close();
+    }
+  });
+
+  // ── Native-capability families (Phase A/B/C) ────────────────────
+  // Sanity checks that the dev-server's fake routes return the
+  // shapes the SDK's typed controllers expect, so a developer can
+  // run their mini-app against `i99dash dev` instead of needing a
+  // Leopard 8.
+
+  it('POST /_sdk/native-cap → display.list returns the 3-display rig', async () => {
+    const opts = makeBuildServerOpts(new StateStore(initialState), dir);
+    const app = await buildServer(opts);
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/_sdk/native-cap',
+        payload: { op: 'display.list', params: {} },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.success).toBe(true);
+      expect(body.data.displays).toHaveLength(3);
+      // First entry is the IVI (default), last is the cluster.
+      expect(body.data.displays[0].isDefault).toBe(true);
+      expect(body.data.displays[2].isCluster).toBe(true);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('POST /_sdk/native-cap → surface.create + surface.list round-trip', async () => {
+    const opts = makeBuildServerOpts(new StateStore(initialState), dir);
+    const app = await buildServer(opts);
+    try {
+      const create = await app.inject({
+        method: 'POST',
+        url: '/_sdk/native-cap',
+        payload: {
+          op: 'surface.create',
+          params: { displayId: 5, route: '/cluster.html' },
+        },
+      });
+      const created = JSON.parse(create.body);
+      expect(created.success).toBe(true);
+      expect(created.data.surfaceId).toMatch(/^sfc_dev_/);
+      expect(created.data.path).toBe('am-start'); // non-default display
+
+      const list = await app.inject({
+        method: 'POST',
+        url: '/_sdk/native-cap',
+        payload: { op: 'surface.list', params: {} },
+      });
+      const listed = JSON.parse(list.body);
+      expect(listed.data.surfaces).toHaveLength(1);
+      expect(listed.data.surfaces[0].route).toBe('/cluster.html');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('POST /_sdk/native-cap → pkg.list filters out system apps by default', async () => {
+    const opts = makeBuildServerOpts(new StateStore(initialState), dir);
+    const app = await buildServer(opts);
+    try {
+      const r = await app.inject({
+        method: 'POST',
+        url: '/_sdk/native-cap',
+        payload: { op: 'pkg.list', params: { includeSystem: false } },
+      });
+      const body = JSON.parse(r.body);
+      const systemEntries = body.data.packages.filter((p: { isSystem: boolean }) => p.isSystem);
+      expect(systemEntries).toHaveLength(0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('POST /_sdk/native-cap → boot.set is scoped to active appId', async () => {
+    const nativeCap = new NativeCapStore('app-a');
+    const app = await buildServer({
+      state: new StateStore(initialState),
+      fixtures: new FixtureStore(dir),
+      nativeCap,
+    });
+    try {
+      // App A pins music.
+      await app.inject({
+        method: 'POST',
+        url: '/_sdk/native-cap',
+        payload: {
+          op: 'boot.set',
+          params: { packageName: 'com.byd.music', displayId: 5 },
+        },
+      });
+      // List under app-a — should see the row.
+      const lA = await app.inject({
+        method: 'POST',
+        url: '/_sdk/native-cap',
+        payload: { op: 'boot.list', params: {} },
+      });
+      expect(JSON.parse(lA.body).data.entries).toHaveLength(1);
+
+      // Switch the active appId; list is now empty for app-b.
+      nativeCap.setActiveAppId('app-b');
+      const lB = await app.inject({
+        method: 'POST',
+        url: '/_sdk/native-cap',
+        payload: { op: 'boot.list', params: {} },
+      });
+      expect(JSON.parse(lB.body).data.entries).toHaveLength(0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('POST /_sdk/native-cap rejects unknown family ops with unknown_op', async () => {
+    const opts = makeBuildServerOpts(new StateStore(initialState), dir);
+    const app = await buildServer(opts);
+    try {
+      const r = await app.inject({
+        method: 'POST',
+        url: '/_sdk/native-cap',
+        payload: { op: 'mystery.read', params: {} },
+      });
+      const body = JSON.parse(r.body);
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('unknown_op');
     } finally {
       await app.close();
     }
