@@ -30,6 +30,9 @@ import {
   runDev,
   runDoctor,
   runInit,
+  TEMPLATES,
+  type TemplateName,
+  UsageError,
   runLogin,
   runLogout,
   runPerms,
@@ -74,7 +77,7 @@ program
 program
   .command('init [dir]')
   .description('scaffold a new mini-app project')
-  .option('-t, --template <name>', 'project template', 'vanilla')
+  .option('-t, --template <name>', `project template (one of ${TEMPLATES.join(', ')})`, 'vanilla')
   .option('-f, --force', 'overwrite a non-empty target dir', false)
   .option('-y, --yes', 'accept defaults; skip the category prompt', false)
   .option('--category <slug>', 'pre-answer the category prompt (one of CATEGORY_SLUGS)')
@@ -83,10 +86,13 @@ program
       dir: string | undefined,
       opts: { template: string; force: boolean; yes: boolean; category?: string },
     ) => {
+      if (!TEMPLATES.includes(opts.template as TemplateName)) {
+        throw new UsageError(`unknown template "${opts.template}". Valid: ${TEMPLATES.join(', ')}`);
+      }
       await runInit({
         cwd: process.cwd(),
         dir: dir ?? 'my-mini-app',
-        template: opts.template as 'vanilla',
+        template: opts.template as TemplateName,
         force: opts.force,
         yes: opts.yes,
         ...(opts.category !== undefined ? { category: opts.category } : {}),

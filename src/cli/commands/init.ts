@@ -1,6 +1,6 @@
-import { copyFile, mkdir, readdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
@@ -9,18 +9,27 @@ import { LocalIOError, UsageError } from '../util/errors.js';
 import { logger } from '../util/logger.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-// Two locations so the same code path works for `pnpm test` (source
-// under tsx, file at `src/templates/...`) AND the published tarball
-// (`dist/index.js`, file at `dist/templates/...` per tsup onSuccess).
-const PLACEHOLDER_ICON = (() => {
-  const fromDist = resolve(HERE, 'templates', '_shared', 'icon.svg');
-  return existsSync(fromDist) ? fromDist : resolve(HERE, '..', 'templates', '_shared', 'icon.svg');
-})();
+
+/// Two layout fallbacks so the same code path works for `pnpm test`
+/// (source under tsx, files at `src/cli/templates/...`) AND the
+/// published tarball (`dist/cli.js`, files at `dist/cli/templates/...`
+/// per tsup onSuccess).
+function templateFile(...segments: string[]): string {
+  const fromDist = resolve(HERE, 'cli', 'templates', ...segments);
+  if (existsSync(fromDist)) return fromDist;
+  // src/cli/commands/init.ts → ../templates/<...>
+  return resolve(HERE, '..', 'templates', ...segments);
+}
+
+const PLACEHOLDER_ICON = templateFile('_shared', 'icon.svg');
+
+export const TEMPLATES = ['vanilla', 'cluster-widget'] as const;
+export type TemplateName = (typeof TEMPLATES)[number];
 
 export interface InitOptions {
   cwd: string;
   dir: string;
-  template: 'vanilla';
+  template: TemplateName;
   force: boolean;
   /// Skip prompts; accept defaults. Set by `--yes` or non-TTY environments.
   yes?: boolean;
@@ -39,20 +48,42 @@ export interface InitOptions {
 ///   - `mocks/fuel-stations.GET.json` (example fixture)
 export async function runInit(opts: InitOptions): Promise<void> {
   const target = resolve(opts.cwd, opts.dir);
-  if (opts.template !== 'vanilla') {
-    // Intentionally guarded — future templates add to this union.
-    throw new UsageError(`unknown template: ${String(opts.template)}`);
+  if (!TEMPLATES.includes(opts.template)) {
+    throw new UsageError(`unknown template "${opts.template}". Valid: ${TEMPLATES.join(', ')}`);
   }
 
   await ensureEmptyOrForced(target, opts.force);
 
-  const category = await resolveCategory(opts);
+  const category = opts.template === 'cluster-widget' ? 'developer' : await resolveCategory(opts);
 
+  if (opts.template === 'cluster-widget') {
+    await scaffoldClusterWidget(target, opts.dir);
+  } else {
+    await scaffoldVanilla(target, opts.dir, category);
+  }
+
+  logger.success(`scaffolded mini-app at ${target}`);
+  logger.info('next steps:');
+  logger.info(`  cd ${opts.dir}`);
+  logger.info('  pnpm install');
+  logger.info('  pnpm dev');
+  logger.info('');
+  if (opts.template === 'cluster-widget') {
+    logger.info('cluster-widget renders the secondary surface from');
+    logger.info('src/cluster.html on display.id from `client.display.list()`.');
+    logger.info('Try in `i99dash dev` first — the dev-server fakes a 3-display rig.');
+  } else {
+    logger.info('your icon is a placeholder at assets/icon.svg — replace');
+    logger.info('it with your real 256×256 PNG or SVG before publishing.');
+  }
+}
+
+async function scaffoldVanilla(target: string, dirName: string, category: string): Promise<void> {
   await mkdir(resolve(target, 'src', 'assets'), { recursive: true });
   await mkdir(resolve(target, 'mocks'), { recursive: true });
 
-  await writeFile(resolve(target, 'package.json'), packageJsonTemplate(opts.dir));
-  await writeFile(resolve(target, 'manifest.json'), manifestJsonTemplate(opts.dir, category));
+  await writeFile(resolve(target, 'package.json'), packageJsonTemplate(dirName));
+  await writeFile(resolve(target, 'manifest.json'), manifestJsonTemplate(dirName, category));
   await writeFile(resolve(target, 'sdk.config.json'), sdkConfigJsonTemplate());
   await writeFile(resolve(target, 'src', 'index.html'), htmlTemplate());
   await writeFile(resolve(target, 'mocks', 'fuel-stations.GET.json'), fuelStationsFixture());
@@ -62,15 +93,43 @@ export async function runInit(opts: InitOptions): Promise<void> {
   // The manifest's `icon` path is interpreted relative to dist root —
   // i.e. the same as appRoot for vanilla, framework-output dir otherwise.
   await copyFile(PLACEHOLDER_ICON, resolve(target, 'src', 'assets', 'icon.svg'));
+}
 
-  logger.success(`scaffolded mini-app at ${target}`);
-  logger.info('next steps:');
-  logger.info(`  cd ${opts.dir}`);
-  logger.info('  pnpm install');
-  logger.info('  pnpm dev');
-  logger.info('');
-  logger.info('your icon is a placeholder at assets/icon.svg — replace');
-  logger.info('it with your real 256×256 PNG or SVG before publishing.');
+/// cluster-widget template — opens a secondary surface on the
+/// instrument cluster via `client.display.list()` + `client.surface.create()`.
+/// Bundled HTML files come from `src/cli/templates/cluster-widget/`
+/// (and `dist/cli/templates/cluster-widget/` after build).
+async function scaffoldClusterWidget(target: string, dirName: string): Promise<void> {
+  const id = dirName.replace(/[^a-z0-9_-]/gi, '-').toLowerCase() || 'my-cluster-widget';
+  await mkdir(resolve(target, 'src', 'assets'), { recursive: true });
+  await mkdir(resolve(target, 'mocks'), { recursive: true });
+
+  await writeFile(resolve(target, 'package.json'), packageJsonTemplate(dirName));
+  await writeFile(resolve(target, 'manifest.json'), clusterWidgetManifestTemplate(id));
+  await writeFile(resolve(target, 'sdk.config.json'), sdkConfigJsonTemplate());
+  await writeFile(resolve(target, '.gitignore'), gitignoreTemplate());
+  await copyFile(PLACEHOLDER_ICON, resolve(target, 'src', 'assets', 'icon.svg'));
+  // Pull the real example HTML so the developer starts from
+  // verified-on-Leopard-8 surface.create code, not a sketch.
+  await copyTemplateDir(templateFile('cluster-widget', 'src'), resolve(target, 'src'));
+}
+
+async function copyTemplateDir(srcDir: string, dstDir: string): Promise<void> {
+  const entries = await readdir(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = join(srcDir, entry.name);
+    const dstPath = join(dstDir, entry.name);
+    if (entry.isDirectory()) {
+      await mkdir(dstPath, { recursive: true });
+      await copyTemplateDir(srcPath, dstPath);
+    } else if (entry.isFile()) {
+      // Use readFile + writeFile (rather than copyFile) so the
+      // bundle-time source files don't carry a Windows-specific
+      // line-ending the user's editor would normalise back later.
+      const body = await readFile(srcPath);
+      await writeFile(dstPath, body);
+    }
+  }
 }
 
 /// Resolves the category for the new app. In TTY mode (and unless `--yes`
@@ -164,6 +223,32 @@ function manifestJsonTemplate(dirName: string, category: string): string {
       minHostVersion: '0.0.2',
       category,
       safeWhileDriving: false,
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+/// cluster-widget manifest declares the two permissions a cluster
+/// renderer needs (display.read to enumerate, surface.write to mount).
+/// minHostVersion is set to 1.3.0 because that's where the host's
+/// Phase A surface family ships.
+function clusterWidgetManifestTemplate(id: string): string {
+  return `${JSON.stringify(
+    {
+      id,
+      name: { en: 'My Cluster Widget', ar: 'الحاجة الخاصة بي' },
+      description: {
+        en: 'Renders a custom widget on the instrument cluster via surface.create.',
+        ar: 'يعرض عنصر واجهة مستخدم مخصصًا على عداد القيادة باستخدام surface.create.',
+      },
+      icon: './assets/icon.svg',
+      url: 'https://miniapps.i99dash.app/' + id + '/',
+      version: '0.1.0',
+      minHostVersion: '1.3.0',
+      category: 'developer',
+      safeWhileDriving: false,
+      requiredPermissions: ['display.read', 'surface.write'],
     },
     null,
     2,

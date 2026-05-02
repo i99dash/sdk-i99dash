@@ -13,7 +13,7 @@ export { runBuild } from './commands/build.js';
 export { makeBetaCommand } from './commands/beta.js';
 export { runDev } from './commands/dev.js';
 export { runDoctor } from './commands/doctor.js';
-export { runInit } from './commands/init.js';
+export { runInit, TEMPLATES, type TemplateName } from './commands/init.js';
 export { runLogin } from './commands/login.js';
 export { runLogout } from './commands/logout.js';
 export { runPerms } from './commands/perms.js';

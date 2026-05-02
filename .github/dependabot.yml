@@ -1,0 +1,77 @@
+# Dependabot is the GitHub-built-in fallback for if/when Renovate isn't
+# installed yet. Once Renovate is active in this repo, leaving Dependabot
+# enabled doubles up only on the npm ecosystem — that's fine for the
+# transition period; one or the other can be disabled later.
+#
+# Schedule + grouping mirrors renovate.json so the two run rhythms agree.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: deps
+      include: scope
+    groups:
+      typescript-eslint:
+        patterns:
+          - typescript
+          - typescript-eslint
+          - '@typescript-eslint/*'
+          - eslint
+          - '@eslint/*'
+        update-types:
+          - minor
+          - patch
+      fastify:
+        patterns:
+          - fastify
+          - '@fastify/*'
+        update-types:
+          - minor
+          - patch
+      testing:
+        patterns:
+          - vitest
+          - jsdom
+          - '@testing-library/*'
+        update-types:
+          - minor
+          - patch
+      react:
+        patterns:
+          - react
+          - react-dom
+          - '@types/react'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Major bumps deserve a standalone PR with migration notes —
+      # let Dependabot still propose them, just one at a time so
+      # they don't pile up under the grouped weekly digest.
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: UTC
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci
+      include: scope

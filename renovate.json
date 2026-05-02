@@ -1,0 +1,82 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":automergeMinor",
+    ":automergeBranch"
+  ],
+  "description": [
+    "i99dash-sdk Renovate config.",
+    "Minor + patch updates auto-merge once CI is green; majors open a normal PR for human review.",
+    "Grouped by family so a single weekly digest covers TypeScript / linting / testing / Fastify, etc.",
+    "Lockfile maintenance runs weekly so transitive resolutions don't drift."
+  ],
+  "timezone": "UTC",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 8,
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["dependencies", "security"]
+  },
+  "packageRules": [
+    {
+      "description": "TypeScript + the typed ESLint stack travel together — bump as one.",
+      "matchPackageNames": [
+        "typescript",
+        "typescript-eslint",
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser",
+        "eslint",
+        "@eslint/js"
+      ],
+      "groupName": "TypeScript / ESLint",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "Fastify + its first-party plugins — same release line, same PR.",
+      "matchPackageNames": ["fastify", "@fastify/static"],
+      "groupName": "Fastify",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "Vitest + jsdom — test-runner stack.",
+      "matchPackageNames": ["vitest", "jsdom", "@testing-library/react"],
+      "groupName": "Testing",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "React + react-dom + @types/react — version-locked.",
+      "matchPackageNames": ["react", "react-dom", "@types/react"],
+      "groupName": "React",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "Major bumps — open as standalone PRs so each migration gets reviewed.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "addLabels": ["breaking"],
+      "schedule": ["before 6am on monday"]
+    },
+    {
+      "description": "Lockfile maintenance — keep transitives healthy. Auto-mergeable when CI passes.",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "automerge": true,
+      "addLabels": ["dependencies", "lockfile"]
+    },
+    {
+      "description": "Pin GitHub Actions to commit SHAs for security; Renovate keeps the SHA + version comment in sync.",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true,
+      "groupName": "GitHub Actions"
+    }
+  ]
+}
