@@ -29,6 +29,7 @@ export {
   type VehicleEnvironmentBridge,
   type WindowWithHost,
 } from './bridge.js';
+export { BootController, type BootEntry, type SetOptions as BootSetOptions } from './boot.js';
 export { CarStatusController, type CarConnectionListener, type CarStatusListener } from './car.js';
 export { ClimateController, type ClimateListener } from './climate.js';
 export { ConnectivityController, type ConnectivityListener } from './connectivity.js';
@@ -49,6 +50,16 @@ export {
 export { LocationController, type LocationListener } from './location.js';
 export { MediaController, type MediaListener } from './media.js';
 export { NavigationController, type NavigationListener } from './navigation.js';
+export {
+  PkgController,
+  type ForegroundInfo,
+  type LaunchOptions,
+  type LaunchResult,
+  type ListOptions as PkgListOptions,
+  type PackageInfo,
+  type UsageResult,
+  type UsageRow,
+} from './pkg.js';
 export { SystemController, type SystemListener } from './system.js';
 export {
   VehicleDiagnosticsController,
