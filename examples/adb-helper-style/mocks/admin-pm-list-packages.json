@@ -1,0 +1,16 @@
+{
+  "match": { "templateId": "pm.list_packages" },
+  "response": {
+    "success": true,
+    "data": {
+      "packages": [
+        { "name": "com.byd.trafficmonitor", "user": 0, "enabled": true },
+        { "name": "com.byd.autovoice", "user": 0, "enabled": true },
+        { "name": "com.byd.autovoice.tts", "user": 0, "enabled": false },
+        { "name": "com.byd.systemui", "user": 0, "enabled": true },
+        { "name": "com.android.settings", "user": 0, "enabled": true },
+        { "name": "com.byd.passenger.app", "user": 999, "enabled": true }
+      ]
+    }
+  }
+}

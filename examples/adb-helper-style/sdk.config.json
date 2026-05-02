@@ -1,0 +1,16 @@
+{
+  "appRoot": "./out",
+  "mocksDir": "./mocks",
+  "dev": {
+    "port": 5174,
+    "host": "127.0.0.1",
+    "context": {
+      "userId": "demo-user-01",
+      "activeCarId": "VIN-DEMO-0001",
+      "locale": "en",
+      "isDark": false,
+      "appVersion": "0.1.0",
+      "appId": "adb-helper"
+    }
+  }
+}

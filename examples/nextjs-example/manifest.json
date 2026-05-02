@@ -1,0 +1,17 @@
+{
+  "id": "nextjs-example",
+  "name": {
+    "en": "Next.js Example",
+    "ar": "مثال Next.js"
+  },
+  "description": {
+    "en": "Reference mini-app for i99dash — fuel prices, context card, driving-state aware.",
+    "ar": "تطبيق مرجعي لحزمة i99dash — أسعار الوقود، بطاقة السياق، وعي بحالة القيادة."
+  },
+  "icon": "./assets/icon.svg",
+  "url": "https://miniapps.i99dash.app/nextjs-example/",
+  "version": "0.1.3",
+  "minHostVersion": "0.0.2",
+  "category": "other",
+  "safeWhileDriving": false
+}

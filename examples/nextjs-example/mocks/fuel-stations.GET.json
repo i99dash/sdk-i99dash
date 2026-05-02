@@ -1,0 +1,13 @@
+{
+  "match": { "path": "/api/v1/fuel-stations", "method": "GET" },
+  "response": {
+    "success": true,
+    "data": {
+      "stations": [
+        { "name": "Shell — Corniche", "price_sar": 2.33, "distance_km": 0.8 },
+        { "name": "ADNOC — Al Khalifa", "price_sar": 2.29, "distance_km": 1.4 },
+        { "name": "Aramco — Main Rd", "price_sar": 2.27, "distance_km": 2.1 }
+      ]
+    }
+  }
+}

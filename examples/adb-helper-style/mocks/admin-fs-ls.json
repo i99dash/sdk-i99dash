@@ -1,0 +1,14 @@
+{
+  "match": { "templateId": "fs.ls" },
+  "response": {
+    "success": true,
+    "data": {
+      "path": "/sdcard/Download",
+      "entries": [
+        { "name": "obd-snapshot-2026-04-25.json", "isDirectory": false, "size": 12876 },
+        { "name": "logs", "isDirectory": true, "size": 0 },
+        { "name": "diag-export.zip", "isDirectory": false, "size": 4823118 }
+      ]
+    }
+  }
+}

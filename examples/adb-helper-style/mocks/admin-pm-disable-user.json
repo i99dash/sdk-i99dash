@@ -1,0 +1,7 @@
+{
+  "match": { "templateId": "pm.disable_user" },
+  "response": {
+    "success": true,
+    "data": { "disabled": true }
+  }
+}

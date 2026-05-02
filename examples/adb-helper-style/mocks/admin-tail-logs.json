@@ -1,0 +1,17 @@
+{
+  "match": { "templateId": "diag.tail_logs" },
+  "response": {
+    "success": true,
+    "data": {
+      "lines": [
+        "2026-04-26 22:35:18.034 D MqttClient   connected to mqtt.i99dash.app:8883",
+        "2026-04-26 22:35:18.211 I CarService   active VIN=WDB1234567",
+        "2026-04-26 22:35:19.402 D Pairing      session valid until 2026-05-26",
+        "2026-04-26 22:35:21.118 I AdminPerms   session cap loaded for adb-helper",
+        "2026-04-26 22:35:24.502 D MqttClient   heartbeat ack",
+        "2026-04-26 22:35:29.502 D MqttClient   heartbeat ack",
+        "2026-04-26 22:35:34.502 D MqttClient   heartbeat ack"
+      ]
+    }
+  }
+}

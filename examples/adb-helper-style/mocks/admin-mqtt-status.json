@@ -1,0 +1,10 @@
+{
+  "match": { "templateId": "diag.mqtt_status" },
+  "response": {
+    "success": true,
+    "data": {
+      "connected": true,
+      "lastMessageAt": "2 seconds ago"
+    }
+  }
+}
