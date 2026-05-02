@@ -305,24 +305,22 @@
           },
         };
 
-        document
-          .getElementById('quick')
-          .addEventListener('click', async function (e) {
-            var btn = e.target.closest('button[data-preset]');
-            if (!btn) return;
-            var name = btn.dataset.preset;
-            var fn = presets[name];
-            if (!fn) return;
-            btn.disabled = true;
-            try {
-              var r = await fn();
-              log(name + ' → ' + JSON.stringify(r));
-            } catch (err) {
-              log(name + ' failed: ' + (err && err.message));
-            } finally {
-              btn.disabled = false;
-            }
-          });
+        document.getElementById('quick').addEventListener('click', async function (e) {
+          var btn = e.target.closest('button[data-preset]');
+          if (!btn) return;
+          var name = btn.dataset.preset;
+          var fn = presets[name];
+          if (!fn) return;
+          btn.disabled = true;
+          try {
+            var r = await fn();
+            log(name + ' → ' + JSON.stringify(r));
+          } catch (err) {
+            log(name + ' failed: ' + (err && err.message));
+          } finally {
+            btn.disabled = false;
+          }
+        });
 
         async function ensureAttached() {
           if (attached) return;
@@ -387,7 +385,16 @@
               x: c.x,
               y: c.y,
             });
-            log('tap displayId=' + targetDisplay + ' (' + c.x + ',' + c.y + ') → ' + JSON.stringify(r));
+            log(
+              'tap displayId=' +
+                targetDisplay +
+                ' (' +
+                c.x +
+                ',' +
+                c.y +
+                ') → ' +
+                JSON.stringify(r),
+            );
           } catch (err) {
             log('gesture.tap failed: ' + (err && err.message));
           }

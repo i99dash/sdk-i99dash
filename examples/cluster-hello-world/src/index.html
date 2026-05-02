@@ -117,10 +117,9 @@
       <span class="pill" id="surface-pill">surface: idle</span>
     </div>
     <p class="hint">
-      Tap "Open" on each display to find the one wired to the physical
-      cluster. The host's <code>isCluster</code> flag is a hint, not
-      ground truth on every head unit (XDJA fission virtualizes some
-      IDs as background slots).
+      Tap "Open" on each display to find the one wired to the physical cluster. The host's
+      <code>isCluster</code> flag is a hint, not ground truth on every head unit (XDJA fission
+      virtualizes some IDs as background slots).
     </p>
     <div id="display-list"></div>
     <div class="row">
@@ -177,8 +176,7 @@
             var card = document.createElement('div');
             card.className = 'display-card';
             var title = document.createElement('div');
-            title.innerHTML =
-              '<strong>id=' + d.id + '</strong> · ' + (d.name || '?');
+            title.innerHTML = '<strong>id=' + d.id + '</strong> · ' + (d.name || '?');
             card.appendChild(title);
             var meta = document.createElement('div');
             meta.className = 'display-meta';
@@ -243,39 +241,28 @@
             });
             sfcId = r.surfaceId;
             sfcDisplayId = displayId;
-            pill(
-              'surface-pill',
-              'surface: ' + r.path + ' on id=' + displayId,
-              'ok',
-            );
+            pill('surface-pill', 'surface: ' + r.path + ' on id=' + displayId, 'ok');
             log('surface.create(displayId=' + displayId + ') → ' + JSON.stringify(r));
             document.getElementById('close').disabled = false;
           } catch (e) {
             pill('surface-pill', 'surface: error', 'err');
-            log(
-              'surface.create(displayId=' +
-                displayId +
-                ') failed: ' +
-                (e && e.message),
-            );
+            log('surface.create(displayId=' + displayId + ') failed: ' + (e && e.message));
           }
         }
 
-        document
-          .getElementById('close')
-          .addEventListener('click', async function () {
-            if (!sfcId) return;
-            try {
-              await call('surface.destroy', { surfaceId: sfcId });
-              log('surface.destroy(id=' + sfcDisplayId + ') ok');
-              sfcId = null;
-              sfcDisplayId = null;
-              pill('surface-pill', 'surface: idle', 'info');
-              document.getElementById('close').disabled = true;
-            } catch (e) {
-              log('surface.destroy failed: ' + (e && e.message));
-            }
-          });
+        document.getElementById('close').addEventListener('click', async function () {
+          if (!sfcId) return;
+          try {
+            await call('surface.destroy', { surfaceId: sfcId });
+            log('surface.destroy(id=' + sfcDisplayId + ') ok');
+            sfcId = null;
+            sfcDisplayId = null;
+            pill('surface-pill', 'surface: idle', 'info');
+            document.getElementById('close').disabled = true;
+          } catch (e) {
+            log('surface.destroy failed: ' + (e && e.message));
+          }
+        });
 
         start();
       })();
