@@ -5,12 +5,12 @@
     "ar": "خلفية لوحة القيادة"
   },
   "description": {
-    "en": "Customize the look of every screen in your car. Pick from a gallery, upload your own photo or video, or design a live gradient — apply to the head unit, passenger screen, or instrument cluster, all at once or one at a time.",
-    "ar": "خصّص مظهر جميع شاشات سيارتك. اختر من المعرض، ارفع صورتك أو فيديوك الخاص، أو صمم تدرجاً مباشراً — طبّقه على الشاشة الرئيسية أو شاشة الراكب أو شاشة العدادات."
+    "en": "Customize the look of every screen in your car. Pick from six handpicked gallery presets and apply to the head unit, passenger screen, or instrument cluster — all at once or one at a time. Custom uploads and live gradients arrive in v0.2.",
+    "ar": "خصّص مظهر جميع شاشات سيارتك. اختر من ست خلفيات منتقاة من المعرض وطبّقها على الشاشة الرئيسية أو شاشة الراكب أو شاشة العدادات — كلّها معاً أو واحدة في كل مرة. الرفع المخصص والتدرجات الحية ستصل في الإصدار 0.2."
   },
   "icon": "./icon.svg",
   "url": "https://miniapps.i99dash.app/dash-wallpaper/",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minHostVersion": "1.2.0",
   "category": "lifestyle",
   "safeWhileDriving": false,
