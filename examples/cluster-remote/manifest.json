@@ -1,0 +1,19 @@
+{
+  "id": "cluster-remote",
+  "name": {
+    "en": "Cluster Remote",
+    "ar": "تحكم العداد"
+  },
+  "description": {
+    "en": "Use the IVI as a touchpad to drive the instrument cluster. Captures touch on the IVI, draws a cursor for visual feedback, and forwards taps + swipes onto a cluster display via the host's gesture-dispatch family. Reference for the Phase B native-capability surface.",
+    "ar": "استخدم شاشة الوسائط كلوحة لمس للتحكم بشاشة العدادات."
+  },
+  "icon": "./icon.svg",
+  "url": "https://miniapps.i99dash.app/cluster-remote/",
+  "version": "0.1.2",
+  "minHostVersion": "1.2.0",
+  "category": "developer",
+  "safeWhileDriving": false,
+  "requiredPermissions": ["display.read", "cursor.write", "gesture.dispatch"],
+  "screenshots": ["./screenshot-1.svg"]
+}
