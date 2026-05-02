@@ -2,10 +2,19 @@ import type { MiniAppContext } from '../types/index.js';
 
 import { buildServer } from './server.js';
 import { FixtureStore } from './state/fixture-store.js';
+import { NativeCapStore } from './state/native-cap-store.js';
 import { StateStore, type DevServerState } from './state/state-store.js';
 
 export { StateStore, type DevServerState, type DevServerStatePatch } from './state/state-store.js';
 export { FixtureStore, FixtureSchema, type Fixture } from './state/fixture-store.js';
+export {
+  NativeCapStore,
+  type NativeCapSnapshot,
+  type FakeDisplay,
+  type FakeSurface,
+  type FakePackage,
+  type FakeBootEntry,
+} from './state/native-cap-store.js';
 export { buildServer } from './server.js';
 
 export interface StartDevServerOptions {
@@ -21,6 +30,7 @@ export interface DevServerHandle {
   stop(): Promise<void>;
   state: StateStore;
   fixtures: FixtureStore;
+  nativeCap: NativeCapStore;
 }
 
 /// Convenience entry point — spins up the Fastify server + fixture
@@ -36,10 +46,12 @@ export async function startDevServer(opts: StartDevServerOptions): Promise<DevSe
   const fixtures = new FixtureStore(opts.mocksDir);
   await fixtures.load();
   await fixtures.watch();
+  const nativeCap = new NativeCapStore(opts.initialState.context.appId);
 
   const app = await buildServer({
     state,
     fixtures,
+    nativeCap,
     appRoot: opts.appRoot,
   });
   await app.listen({ port, host });
@@ -53,6 +65,7 @@ export async function startDevServer(opts: StartDevServerOptions): Promise<DevSe
     },
     state,
     fixtures,
+    nativeCap,
   };
 }
 

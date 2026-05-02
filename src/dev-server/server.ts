@@ -6,6 +6,7 @@ import { BRIDGE_SHIM_JS } from './inject/bridge-shim.js';
 import { INSPECT_HTML } from './ui/inspect.js';
 import { UI_HTML } from './ui/ui.js';
 import type { FixtureStore } from './state/fixture-store.js';
+import type { NativeCapStore } from './state/native-cap-store.js';
 import type { StateStore } from './state/state-store.js';
 
 const StatePatchSchema = z.object({
@@ -13,9 +14,16 @@ const StatePatchSchema = z.object({
   speedKmh: z.number().nonnegative().optional(),
 });
 
+const NativeCapRequestSchema = z.object({
+  op: z.string().min(1).max(64),
+  params: z.record(z.unknown()).default({}),
+  idempotencyKey: z.string().nullable().optional(),
+});
+
 interface BuildOptions {
   state: StateStore;
   fixtures: FixtureStore;
+  nativeCap: NativeCapStore;
   /// Directory whose contents are served as the mini-app. Default
   /// behaviour: static-serve. For framework integrations (Vite / Next
   /// dev-server), pass an alternate request-handler via `proxy`.
@@ -83,6 +91,31 @@ export async function buildServer(opts: BuildOptions): Promise<FastifyInstance> 
       return { ok: false, error: parsed.error.message };
     }
     return { ok: true, state: opts.state.patch(parsed.data) };
+  });
+
+  // Native-capability families (Phase A/B/C). One catch-all POST
+  // routes every `<family>.<verb>` op into the in-memory simulation
+  // ([NativeCapStore]). Returns the same `{success, data?, error?}`
+  // envelope the host's family executor returns, so the SDK's typed
+  // controllers branch on the same `code` strings in dev that they
+  // do in production.
+  app.post('/_sdk/native-cap', async (req, reply) => {
+    const parsed = NativeCapRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      reply.code(400);
+      return {
+        success: false as const,
+        error: { code: 'bad_request', message: parsed.error.message },
+      };
+    }
+    return opts.nativeCap.dispatch(parsed.data.op, parsed.data.params);
+  });
+
+  app.get('/_sdk/native-cap/snapshot', async () => opts.nativeCap.snapshot());
+
+  app.post('/_sdk/native-cap/reset', async () => {
+    opts.nativeCap.reset();
+    return { ok: true };
   });
 
   app.get('/_sdk/ui', async (_req, reply) => {
