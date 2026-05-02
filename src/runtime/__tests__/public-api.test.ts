@@ -17,6 +17,7 @@ import * as sdk from '../index.js';
 import * as types from '../public-types.js';
 
 const SDK_PUBLIC_EXPORTS = [
+  'BootController',
   'BridgeTimeoutError',
   'BridgeTransportError',
   'CallApiFailedError',
@@ -44,6 +45,7 @@ const SDK_PUBLIC_EXPORTS = [
   'NavigationUnavailableError',
   'NotInsideHostError',
   'PermissionDeniedAggregator',
+  'PkgController',
   'SDKError',
   'SystemController',
   'SystemUnavailableError',

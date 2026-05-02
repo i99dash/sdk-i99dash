@@ -13,9 +13,11 @@ import { HostBridge, isCapabilitiesBridge } from './bridge.js';
 import { CarStatusController } from './car.js';
 import { ClimateController } from './climate.js';
 import { ConnectivityController } from './connectivity.js';
+import { BootController } from './boot.js';
 import { CursorController } from './cursor.js';
 import { DisplayController } from './display.js';
 import { GestureController } from './gesture.js';
+import { PkgController } from './pkg.js';
 import { LocationController } from './location.js';
 import { MediaController } from './media.js';
 import { NavigationController } from './navigation.js';
@@ -182,6 +184,28 @@ export class MiniAppClient {
     return this._cursor;
   }
   private _cursor: CursorController | undefined;
+
+  /// Package surface (`pkg.read` tier-1 + `pkg.launch` tier-2).
+  /// Read-side handlers (`list`, `foreground`, `usage`) are
+  /// available on a secondary surface; the launch handler is
+  /// IVI-only.  Powers "open this app on the cluster" launchers
+  /// and "now playing on IVI" widgets.
+  get pkg(): PkgController {
+    this._pkg ??= new PkgController(this.bridge);
+    return this._pkg;
+  }
+  private _pkg: PkgController | undefined;
+
+  /// Boot-launch surface (`boot.write` tier-2). Declare which
+  /// packages auto-launch on cold boot, optionally pinned to a
+  /// non-default display.  Persists across reboots in the host's
+  /// admin DB; per-mini-app isolation prevents cross-app
+  /// snooping of declarations.
+  get boot(): BootController {
+    this._boot ??= new BootController(this.bridge);
+    return this._boot;
+  }
+  private _boot: BootController | undefined;
 
   static fromWindow(): MiniAppClient {
     if (typeof window === 'undefined') {

@@ -9,7 +9,7 @@ The realistic capability for non-system-signed apps on Leopard 8:
 the XDJA composer signature-gates pixel delivery to the cluster
 MCU, but `AccessibilityService.dispatchGesture(displayId)` is a
 separate permission system that DOES work without signature
-gating. Same mode 7orr ships in.
+gating. Same mode i99dev ships in.
 
 ## What it demonstrates
 
