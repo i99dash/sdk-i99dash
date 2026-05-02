@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pkg Launcher</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg-0: #050810;
+        --bg-1: #0a0e16;
+        --bg-2: #11192a;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --text-0: #e6e9ef;
+        --text-1: #95a3b9;
+        --text-2: #6c7a93;
+        --accent: #58c7ff;
+        --accent-2: #c8a8ff;
+        --good: #b9f0c5;
+        --warn: #f4a261;
+        --err: #f0b9b9;
+      }
+
+      * {
+        box-sizing: border-box;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      input {
+        -webkit-user-select: auto;
+        user-select: auto;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background:
+          radial-gradient(at 20% 15%, rgba(88, 199, 255, 0.08), transparent 50%),
+          radial-gradient(at 80% 85%, rgba(200, 168, 255, 0.06), transparent 50%), var(--bg-0);
+        color: var(--text-0);
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        font-size: 15px;
+        overflow: hidden;
+      }
+
+      .app {
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto auto auto 1fr auto;
+      }
+
+      /* Header */
+      .header {
+        padding: 14px 20px 10px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .pill {
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 500;
+        background: rgba(88, 199, 255, 0.1);
+        color: var(--accent);
+      }
+      .header .spacer {
+        flex: 1;
+      }
+      .status {
+        font-size: 12px;
+        color: var(--text-1);
+      }
+      .status .count {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* Display chip rail */
+      .targets {
+        padding: 0 20px 12px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        padding: 9px 14px;
+        border-radius: 11px;
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--text-1);
+        transition:
+          background 0.15s,
+          border 0.15s,
+          color 0.15s;
+      }
+      .chip.on {
+        background: rgba(88, 199, 255, 0.14);
+        border-color: var(--accent);
+        color: var(--text-0);
+      }
+      .chip .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-2);
+      }
+      .chip.on .dot {
+        background: var(--accent);
+        box-shadow: 0 0 6px var(--accent);
+      }
+
+      /* Search */
+      .search-row {
+        padding: 0 20px 8px;
+      }
+      .search {
+        width: 100%;
+        padding: 11px 14px;
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        color: var(--text-0);
+        font-size: 14px;
+        outline: none;
+      }
+      .search:focus {
+        border-color: var(--accent);
+      }
+
+      /* App list */
+      .list {
+        overflow-y: auto;
+        padding: 0 20px 14px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        margin-bottom: 6px;
+        background: var(--bg-2);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+      }
+      .row .swatch {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        opacity: 0.55;
+        flex-shrink: 0;
+      }
+      .row .meta {
+        flex: 1;
+        min-width: 0;
+      }
+      .row .label {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-0);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .row .pkg {
+        font-size: 11px;
+        color: var(--text-2);
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .row .actions {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .row button {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 1px solid var(--border-strong);
+        background: var(--bg-2);
+        color: var(--text-1);
+        font-size: 13px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          transform 0.12s,
+          background 0.12s,
+          border 0.12s,
+          color 0.12s;
+      }
+      .row button:active {
+        transform: scale(0.92);
+      }
+      .row button.run {
+        background: rgba(88, 199, 255, 0.18);
+        border-color: rgba(88, 199, 255, 0.45);
+        color: var(--accent);
+      }
+      .row button.boot.on {
+        background: rgba(244, 162, 97, 0.2);
+        border-color: var(--warn);
+        color: var(--warn);
+      }
+      .empty {
+        padding: 36px 20px;
+        text-align: center;
+        color: var(--text-1);
+        font-size: 13px;
+      }
+
+      /* Footer */
+      .footer {
+        padding: 12px 20px;
+        border-top: 1px solid var(--border);
+        background: rgba(10, 14, 22, 0.6);
+        font-size: 12px;
+        color: var(--text-1);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 56px;
+      }
+      .footer .spacer {
+        flex: 1;
+      }
+      .footer .boot-summary {
+        color: var(--warn);
+      }
+      .footer .boot-summary .name {
+        color: var(--text-0);
+      }
+      .footer .hint {
+        font-size: 11px;
+        color: var(--text-2);
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--bg-2);
+        border: 1px solid var(--border-strong);
+        padding: 10px 18px;
+        border-radius: 12px;
+        font-size: 13px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+        max-width: 80%;
+        text-align: center;
+      }
+      .toast.show {
+        opacity: 1;
+      }
+      .toast.err {
+        border-color: var(--err);
+        color: var(--err);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <h1>Pkg Launcher</h1>
+        <span class="pill">v0.1.0</span>
+        <span class="spacer"></span>
+        <span class="status"><span class="count" id="count">0</span> apps</span>
+      </header>
+
+      <div class="targets" id="targets"></div>
+
+      <div class="search-row">
+        <input class="search" id="search" type="text" placeholder="Filter installed apps…" />
+      </div>
+
+      <div class="list" id="list">
+        <div class="empty">Loading installed apps…</div>
+      </div>
+
+      <footer class="footer">
+        <span class="boot-summary" id="bootSummary">★ No auto-launch set</span>
+        <span class="spacer"></span>
+        <span class="hint">tap ▶ launch · tap ★ toggle boot</span>
+      </footer>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      // Phase C reference — uses the host bridge directly so the
+      // bundle stays a single static file. Production mini-apps can
+      // import from the `i99dash` SDK package for typed wrappers.
+      (function () {
+        var bridge = window.flutter_inappwebview;
+        if (!bridge) {
+          alert('No host bridge — run inside i99dash.');
+          return;
+        }
+
+        async function call(name, args) {
+          var raw = await bridge.callHandler(name, {
+            params: args || {},
+            idempotencyKey: 'k' + Math.random().toString(16).slice(2),
+          });
+          if (raw && raw.success === false) {
+            throw new Error(raw.error.code + ': ' + raw.error.message);
+          }
+          return (raw && raw.data) || raw;
+        }
+
+        // ── State ────────────────────────────────────────────
+        var state = {
+          packages: [], // PackageInfo[]
+          displays: [], // DisplaySnapshot[]
+          activeTarget: null, // displayId — null = head unit (default)
+          bootSet: new Set(), // packageNames currently flagged as boot-launch
+          filter: '',
+        };
+
+        // ── DOM helpers ──────────────────────────────────────
+        function $(s) {
+          return document.querySelector(s);
+        }
+        function toast(msg, kind) {
+          var el = $('#toast');
+          el.textContent = msg;
+          el.classList.toggle('err', kind === 'err');
+          el.classList.add('show');
+          clearTimeout(el._t);
+          el._t = setTimeout(function () {
+            el.classList.remove('show');
+          }, 2200);
+        }
+
+        // ── Display chip rail ─────────────────────────────────
+        function displayLabel(d) {
+          if (d.isDefault) return 'Head Unit';
+          if (d.name && d.name.toLowerCase() === 'fse') return 'Passenger';
+          // BYD's XDJA fission exposes three cluster-side virtual
+          // displays — fission_bg (id=3) and the two
+          // shared_fission_bg slots (id=4 contested by amap, id=5
+          // is the friendly overlay). Disambiguate them so the
+          // chip rail isn't three rows of "Cluster".
+          if (/XDJAScreenProjection_1$/i.test(d.name)) return 'Cluster · overlay';
+          if (/XDJAScreenProjection_0$/i.test(d.name)) return 'Cluster · primary';
+          if (/^fission_bg_/i.test(d.name)) return 'Cluster · bg';
+          if (d.isCluster) return 'Cluster · ' + d.id;
+          return d.name || 'Display ' + d.id;
+        }
+        async function loadDisplays() {
+          var r = await call('display.list');
+          var all = (r && r.displays) || [];
+          // Order: IVI first (selected by default), then passenger, then cluster slots.
+          state.displays = all.slice().sort(function (a, b) {
+            var rank = function (d) {
+              if (d.isDefault) return 0;
+              if (d.name && d.name.toLowerCase() === 'fse') return 1;
+              if (/XDJAScreenProjection_1$/i.test(d.name)) return 2;
+              if (d.isCluster) return 3;
+              return 4;
+            };
+            return rank(a) - rank(b);
+          });
+          renderTargets();
+        }
+
+        function renderTargets() {
+          var host = $('#targets');
+          host.innerHTML = '';
+          state.displays.forEach(function (d) {
+            var chip = document.createElement('div');
+            var isActive =
+              (state.activeTarget == null && d.isDefault) || state.activeTarget === d.id;
+            chip.className = 'chip' + (isActive ? ' on' : '');
+            chip.innerHTML = '<span class="dot"></span><span>' + displayLabel(d) + '</span>';
+            chip.addEventListener('click', function () {
+              state.activeTarget = d.isDefault ? null : d.id;
+              renderTargets();
+            });
+            host.appendChild(chip);
+          });
+        }
+
+        // ── Boot list — load existing declarations on boot ────
+        async function loadBoot() {
+          var r = await call('boot.list');
+          var entries = (r && r.entries) || [];
+          state.bootSet = new Set(
+            entries.map(function (e) {
+              return e.packageName;
+            }),
+          );
+          renderBootSummary();
+        }
+
+        function renderBootSummary() {
+          var el = $('#bootSummary');
+          if (state.bootSet.size === 0) {
+            el.innerHTML = '★ No auto-launch set';
+            return;
+          }
+          var names = [];
+          state.packages.forEach(function (p) {
+            if (state.bootSet.has(p.packageName)) names.push(p.label);
+          });
+          // Fallback to package names if labels haven't loaded yet.
+          if (names.length === 0)
+            names = Array.from(state.bootSet).map(function (n) {
+              return n;
+            });
+          el.innerHTML =
+            '★ <span style="color:var(--text-1)">Auto-launch on boot:</span> ' +
+            '<span class="name">' +
+            names.join(', ') +
+            '</span>';
+        }
+
+        // ── Package list ──────────────────────────────────────
+        async function loadPackages() {
+          var r = await call('pkg.list', { includeSystem: false });
+          state.packages = (r && r.packages) || [];
+          $('#count').textContent = state.packages.length;
+          renderPackages();
+          renderBootSummary();
+        }
+
+        function renderPackages() {
+          var host = $('#list');
+          var filter = state.filter.toLowerCase().trim();
+          var rows = state.packages.filter(function (p) {
+            if (!filter) return true;
+            return (
+              p.label.toLowerCase().indexOf(filter) !== -1 ||
+              p.packageName.toLowerCase().indexOf(filter) !== -1
+            );
+          });
+          host.innerHTML = '';
+          if (rows.length === 0) {
+            var empty = document.createElement('div');
+            empty.className = 'empty';
+            empty.textContent = filter
+              ? 'No matches for "' + filter + '"'
+              : 'No installed apps reported by the host.';
+            host.appendChild(empty);
+            return;
+          }
+          rows.forEach(function (p) {
+            var row = document.createElement('div');
+            row.className = 'row';
+            var bootOn = state.bootSet.has(p.packageName);
+            row.innerHTML =
+              '<div class="swatch"></div>' +
+              '<div class="meta">' +
+              '<div class="label">' +
+              escapeHtml(p.label) +
+              '</div>' +
+              '<div class="pkg">' +
+              escapeHtml(p.packageName) +
+              '</div>' +
+              '</div>' +
+              '<div class="actions">' +
+              '<button class="run" data-act="run" title="Launch on selected display">▶</button>' +
+              '<button class="boot' +
+              (bootOn ? ' on' : '') +
+              '" data-act="boot" title="Toggle boot-launch">★</button>' +
+              '</div>';
+            row.querySelector('[data-act="run"]').addEventListener('click', function () {
+              doLaunch(p);
+            });
+            row.querySelector('[data-act="boot"]').addEventListener('click', function () {
+              doToggleBoot(p);
+            });
+            host.appendChild(row);
+          });
+        }
+
+        function escapeHtml(s) {
+          return String(s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+          });
+        }
+
+        // ── Actions ───────────────────────────────────────────
+        async function doLaunch(p) {
+          var args = { packageName: p.packageName };
+          if (state.activeTarget != null) args.displayId = state.activeTarget;
+          try {
+            var r = await call('pkg.launch', args);
+            if (r.ok) {
+              toast(p.label + ' → ' + (r.path || 'launched'));
+            } else {
+              toast(p.label + ': ' + (r.error || r.path || 'denied'), 'err');
+            }
+          } catch (e) {
+            toast('launch failed: ' + (e && e.message), 'err');
+          }
+        }
+
+        async function doToggleBoot(p) {
+          var on = state.bootSet.has(p.packageName);
+          try {
+            if (on) {
+              await call('boot.unset', { packageName: p.packageName });
+              state.bootSet.delete(p.packageName);
+              toast('★ removed: ' + p.label);
+            } else {
+              var args = { packageName: p.packageName };
+              if (state.activeTarget != null) args.displayId = state.activeTarget;
+              await call('boot.set', args);
+              state.bootSet.add(p.packageName);
+              toast('★ set: ' + p.label);
+            }
+            renderPackages();
+            renderBootSummary();
+          } catch (e) {
+            toast('boot toggle failed: ' + (e && e.message), 'err');
+          }
+        }
+
+        // ── Search ────────────────────────────────────────────
+        $('#search').addEventListener('input', function (e) {
+          state.filter = e.target.value;
+          renderPackages();
+        });
+
+        // ── Boot ──────────────────────────────────────────────
+        async function start() {
+          try {
+            await loadDisplays();
+          } catch (e) {
+            toast('display.list failed: ' + (e && e.message), 'err');
+          }
+          try {
+            await loadBoot();
+          } catch (e) {
+            // Non-fatal — boot.write may not be granted yet.
+            console.warn('boot.list failed:', e && e.message);
+          }
+          try {
+            await loadPackages();
+          } catch (e) {
+            $('#list').innerHTML =
+              '<div class="empty">pkg.list failed: ' +
+              escapeHtml(String((e && e.message) || e)) +
+              '</div>';
+          }
+        }
+
+        start();
+      })();
+    </script>
+  </body>
+</html>

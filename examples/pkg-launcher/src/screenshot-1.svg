@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 960">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0e16"/>
+      <stop offset="1" stop-color="#050810"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="0.2" cy="0.15" r="0.5">
+      <stop offset="0" stop-color="#58c7ff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#58c7ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="540" height="960" fill="url(#bg)"/>
+  <rect width="540" height="960" fill="url(#glow1)"/>
+
+  <!-- Header -->
+  <text x="32" y="56" fill="#e6e9ef" font-family="system-ui,sans-serif" font-size="22" font-weight="600">Pkg Launcher</text>
+  <rect x="180" y="38" width="46" height="22" rx="11" fill="rgba(88,199,255,0.12)"/>
+  <text x="203" y="54" text-anchor="middle" fill="#58c7ff" font-family="system-ui,sans-serif" font-size="11" font-weight="500">v0.1.0</text>
+  <text x="508" y="56" text-anchor="end" fill="#95a3b9" font-family="system-ui,sans-serif" font-size="13"><tspan fill="#58c7ff" font-weight="600">14</tspan> apps</text>
+
+  <!-- Display chip rail -->
+  <g font-family="system-ui,sans-serif" font-size="13">
+    <rect x="32" y="86" width="120" height="38" rx="11" fill="rgba(88,199,255,0.14)" stroke="#58c7ff"/>
+    <circle cx="50" cy="105" r="4" fill="#58c7ff"/>
+    <text x="64" y="110" fill="#e6e9ef">Head Unit</text>
+
+    <rect x="160" y="86" width="120" height="38" rx="11" fill="#11192a" stroke="rgba(255,255,255,0.08)"/>
+    <circle cx="178" cy="105" r="4" fill="#6c7a93"/>
+    <text x="192" y="110" fill="#95a3b9">Passenger</text>
+
+    <rect x="288" y="86" width="160" height="38" rx="11" fill="#11192a" stroke="rgba(255,255,255,0.08)"/>
+    <circle cx="306" cy="105" r="4" fill="#6c7a93"/>
+    <text x="320" y="110" fill="#95a3b9">Cluster · overlay</text>
+  </g>
+
+  <!-- Search bar -->
+  <rect x="32" y="142" width="476" height="42" rx="12" fill="#11192a" stroke="rgba(255,255,255,0.08)"/>
+  <text x="48" y="170" fill="#6c7a93" font-family="system-ui,sans-serif" font-size="14">Filter installed apps…</text>
+
+  <!-- App rows (rendering 6) -->
+  <g font-family="system-ui,sans-serif">
+    <!-- Row 1 -->
+    <rect x="32" y="206" width="476" height="64" rx="12" fill="#11192a" stroke="rgba(255,255,255,0.06)"/>
+    <rect x="48" y="222" width="32" height="32" rx="6" fill="rgba(88,199,255,0.4)"/>
+    <text x="92" y="234" fill="#e6e9ef" font-size="14" font-weight="500">Maps</text>
+    <text x="92" y="252" fill="#6c7a93" font-size="11" font-family="ui-monospace,monospace">com.byd.maps</text>
+    <rect x="406" y="218" width="40" height="40" rx="20" fill="rgba(88,199,255,0.18)"/>
+    <text x="426" y="244" text-anchor="middle" fill="#58c7ff" font-size="14" font-weight="600">▶</text>
+    <rect x="456" y="218" width="40" height="40" rx="20" fill="#11192a" stroke="rgba(255,255,255,0.16)"/>
+    <text x="476" y="244" text-anchor="middle" fill="#6c7a93" font-size="13">⊕</text>
+
+    <!-- Row 2 -->
+    <rect x="32" y="282" width="476" height="64" rx="12" fill="#11192a" stroke="rgba(255,255,255,0.06)"/>
+    <rect x="48" y="298" width="32" height="32" rx="6" fill="rgba(200,168,255,0.4)"/>
+    <text x="92" y="310" fill="#e6e9ef" font-size="14" font-weight="500">Music</text>
+    <text x="92" y="328" fill="#6c7a93" font-size="11" font-family="ui-monospace,monospace">com.byd.music</text>
+    <rect x="406" y="294" width="40" height="40" rx="20" fill="rgba(88,199,255,0.18)"/>
+    <text x="426" y="320" text-anchor="middle" fill="#58c7ff" font-size="14" font-weight="600">▶</text>
+    <rect x="456" y="294" width="40" height="40" rx="20" fill="rgba(244,162,97,0.2)" stroke="#f4a261"/>
+    <text x="476" y="320" text-anchor="middle" fill="#f4a261" font-size="13">★</text>
+
+    <!-- Row 3 -->
+    <rect x="32" y="358" width="476" height="64" rx="12" fill="#11192a" stroke="rgba(255,255,255,0.06)"/>
+    <rect x="48" y="374" width="32" height="32" rx="6" fill="rgba(185,240,197,0.45)"/>
+    <text x="92" y="386" fill="#e6e9ef" font-size="14" font-weight="500">Weather</text>
+    <text x="92" y="404" fill="#6c7a93" font-size="11" font-family="ui-monospace,monospace">com.byd.weather</text>
+    <rect x="406" y="370" width="40" height="40" rx="20" fill="rgba(88,199,255,0.18)"/>
+    <text x="426" y="396" text-anchor="middle" fill="#58c7ff" font-size="14" font-weight="600">▶</text>
+    <rect x="456" y="370" width="40" height="40" rx="20" fill="#11192a" stroke="rgba(255,255,255,0.16)"/>
+    <text x="476" y="396" text-anchor="middle" fill="#6c7a93" font-size="13">⊕</text>
+
+    <!-- Row 4 -->
+    <rect x="32" y="434" width="476" height="64" rx="12" fill="#11192a" stroke="rgba(255,255,255,0.06)"/>
+    <rect x="48" y="450" width="32" height="32" rx="6" fill="rgba(244,162,97,0.4)"/>
+    <text x="92" y="462" fill="#e6e9ef" font-size="14" font-weight="500">Camera</text>
+    <text x="92" y="480" fill="#6c7a93" font-size="11" font-family="ui-monospace,monospace">com.byd.camera</text>
+    <rect x="406" y="446" width="40" height="40" rx="20" fill="rgba(88,199,255,0.18)"/>
+    <text x="426" y="472" text-anchor="middle" fill="#58c7ff" font-size="14" font-weight="600">▶</text>
+    <rect x="456" y="446" width="40" height="40" rx="20" fill="#11192a" stroke="rgba(255,255,255,0.16)"/>
+    <text x="476" y="472" text-anchor="middle" fill="#6c7a93" font-size="13">⊕</text>
+
+    <!-- Row 5 -->
+    <rect x="32" y="510" width="476" height="64" rx="12" fill="#11192a" stroke="rgba(255,255,255,0.06)"/>
+    <rect x="48" y="526" width="32" height="32" rx="6" fill="rgba(240,185,185,0.45)"/>
+    <text x="92" y="538" fill="#e6e9ef" font-size="14" font-weight="500">Phone</text>
+    <text x="92" y="556" fill="#6c7a93" font-size="11" font-family="ui-monospace,monospace">com.byd.phone</text>
+    <rect x="406" y="522" width="40" height="40" rx="20" fill="rgba(88,199,255,0.18)"/>
+    <text x="426" y="548" text-anchor="middle" fill="#58c7ff" font-size="14" font-weight="600">▶</text>
+    <rect x="456" y="522" width="40" height="40" rx="20" fill="#11192a" stroke="rgba(255,255,255,0.16)"/>
+    <text x="476" y="548" text-anchor="middle" fill="#6c7a93" font-size="13">⊕</text>
+
+    <!-- Row 6 -->
+    <rect x="32" y="586" width="476" height="64" rx="12" fill="#11192a" stroke="rgba(255,255,255,0.06)"/>
+    <rect x="48" y="602" width="32" height="32" rx="6" fill="rgba(200,168,255,0.4)"/>
+    <text x="92" y="614" fill="#e6e9ef" font-size="14" font-weight="500">Settings</text>
+    <text x="92" y="632" fill="#6c7a93" font-size="11" font-family="ui-monospace,monospace">com.byd.settings</text>
+    <rect x="406" y="598" width="40" height="40" rx="20" fill="rgba(88,199,255,0.18)"/>
+    <text x="426" y="624" text-anchor="middle" fill="#58c7ff" font-size="14" font-weight="600">▶</text>
+    <rect x="456" y="598" width="40" height="40" rx="20" fill="#11192a" stroke="rgba(255,255,255,0.16)"/>
+    <text x="476" y="624" text-anchor="middle" fill="#6c7a93" font-size="13">⊕</text>
+  </g>
+
+  <!-- Boot list footer -->
+  <line x1="0" y1="864" x2="540" y2="864" stroke="rgba(255,255,255,0.08)"/>
+  <text x="32" y="900" fill="#f4a261" font-family="system-ui,sans-serif" font-size="13" font-weight="500">★ <tspan fill="#95a3b9" font-weight="400">Auto-launch on boot:</tspan> <tspan fill="#e6e9ef">Music</tspan></text>
+  <text x="32" y="922" fill="#6c7a93" font-family="system-ui,sans-serif" font-size="11">tap ▶ to launch · tap ⊕/★ to toggle boot</text>
+</svg>
