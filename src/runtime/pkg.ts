@@ -157,4 +157,28 @@ export class PkgController extends BaseFamilyController {
       invokeOpts,
     );
   }
+
+  /**
+   * Move a running package's task to another display. Use this for
+   * "I set up the route on the IVI, now show the running app on the
+   * cluster" workflows where {@link launch} would otherwise be
+   * foiled by the package's own router activity auto-redirecting to
+   * the home display (Waze, certain BYD apps).
+   *
+   * Returns `{ok: false, path: 'denied', error: 'package not
+   * running'}` if the package isn't currently running. The host
+   * uses `am stack move-task` over loopback ADB, the same path the
+   * surface family uses for cluster surfaces.
+   */
+  async move(
+    packageName: string,
+    opts: { displayId: number },
+    invokeOpts: InvokeFamilyOptions = {},
+  ): Promise<LaunchResult> {
+    return this.invoke<LaunchResult>(
+      'move',
+      { packageName, displayId: opts.displayId },
+      invokeOpts,
+    );
+  }
 }

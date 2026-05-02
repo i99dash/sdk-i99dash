@@ -85,6 +85,26 @@
         color: var(--accent);
         font-weight: 600;
       }
+      .dim-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        font-size: 11px;
+        background: var(--bg-2);
+        color: var(--text-1);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        cursor: pointer;
+      }
+      .dim-toggle.on {
+        background: rgba(244, 162, 97, 0.18);
+        border-color: var(--warn);
+        color: var(--warn);
+      }
+      .dim-toggle .dim-icon {
+        font-size: 13px;
+      }
 
       /* Display chip rail */
       .targets {
@@ -217,6 +237,11 @@
         border-color: rgba(88, 199, 255, 0.45);
         color: var(--accent);
       }
+      .row button.move {
+        background: rgba(200, 168, 255, 0.14);
+        border-color: rgba(200, 168, 255, 0.4);
+        color: var(--accent-2);
+      }
       .row button.boot.on {
         background: rgba(244, 162, 97, 0.2);
         border-color: var(--warn);
@@ -284,8 +309,12 @@
     <div class="app">
       <header class="header">
         <h1>Pkg Launcher</h1>
-        <span class="pill">v0.1.0</span>
+        <span class="pill">v0.3.0</span>
         <span class="spacer"></span>
+        <button class="dim-toggle" id="dimToggle" title="Dim driver display when launching apps">
+          <span class="dim-icon">◐</span>
+          <span class="dim-label">Safety dim: <span id="dimState">off</span></span>
+        </button>
         <span class="status"><span class="count" id="count">0</span> apps</span>
       </header>
 
@@ -337,6 +366,8 @@
           activeTarget: null, // displayId — null = head unit (default)
           bootSet: new Set(), // packageNames currently flagged as boot-launch
           filter: '',
+          dimEnabled: false, // safety scrim on driver display
+          dimSurfaces: new Map(), // displayId -> surfaceId of mounted scrim
         };
 
         // ── DOM helpers ──────────────────────────────────────
@@ -482,12 +513,16 @@
               '</div>' +
               '<div class="actions">' +
               '<button class="run" data-act="run" title="Launch on selected display">▶</button>' +
+              '<button class="move" data-act="move" title="Move running app to selected display">⇄</button>' +
               '<button class="boot' +
               (bootOn ? ' on' : '') +
               '" data-act="boot" title="Toggle boot-launch">★</button>' +
               '</div>';
             row.querySelector('[data-act="run"]').addEventListener('click', function () {
               doLaunch(p);
+            });
+            row.querySelector('[data-act="move"]').addEventListener('click', function () {
+              doMove(p);
             });
             row.querySelector('[data-act="boot"]').addEventListener('click', function () {
               doToggleBoot(p);
@@ -510,11 +545,72 @@
             var r = await call('pkg.launch', args);
             if (r.ok) {
               toast(p.label + ' → ' + (r.path || 'launched'));
+              await ensureDimForActiveTarget();
             } else {
               toast(p.label + ': ' + (r.error || r.path || 'denied'), 'err');
             }
           } catch (e) {
             toast('launch failed: ' + (e && e.message), 'err');
+          }
+        }
+
+        // Mount the dim scrim on the currently-selected non-IVI
+        // display, idempotent — no-op if a scrim is already up there
+        // or if the IVI chip is selected. Called after every
+        // successful launch/move so the driver-side displays stay
+        // dimmed regardless of which app is on top.
+        async function ensureDimForActiveTarget() {
+          if (!state.dimEnabled) return;
+          if (state.activeTarget == null) return;
+          if (state.dimSurfaces.has(state.activeTarget)) return;
+          try {
+            var sfc = await call('surface.create', {
+              displayId: state.activeTarget,
+              route: '/dim.html?level=0.45',
+            });
+            state.dimSurfaces.set(state.activeTarget, sfc.surfaceId);
+          } catch (e) {
+            // Mini-app's dim attempt may race with the launched app
+            // claiming the same surface slot — best-effort only.
+            console.warn('dim mount failed:', e && e.message);
+          }
+        }
+
+        async function clearAllDims() {
+          var ids = Array.from(state.dimSurfaces.values());
+          state.dimSurfaces.clear();
+          for (var i = 0; i < ids.length; i++) {
+            try {
+              await call('surface.destroy', { surfaceId: ids[i] });
+            } catch (e) {
+              // Already gone — ignore.
+            }
+          }
+        }
+
+        async function doMove(p) {
+          // Move requires a real displayId; the IVI default (null
+          // target) is meaningless because that's where the app
+          // already lives in the common case. Refuse here so the
+          // user gets a clear toast instead of a server-side
+          // 'no-op' bounce.
+          if (state.activeTarget == null) {
+            toast('Pick a non-IVI chip first to move there', 'err');
+            return;
+          }
+          try {
+            var r = await call('pkg.move', {
+              packageName: p.packageName,
+              displayId: state.activeTarget,
+            });
+            if (r.ok) {
+              toast(p.label + ' → moved (' + (r.path || 'move-task') + ')');
+              await ensureDimForActiveTarget();
+            } else {
+              toast(p.label + ': ' + (r.error || r.path || 'denied'), 'err');
+            }
+          } catch (e) {
+            toast('move failed: ' + (e && e.message), 'err');
           }
         }
 
@@ -543,6 +639,25 @@
         $('#search').addEventListener('input', function (e) {
           state.filter = e.target.value;
           renderPackages();
+        });
+
+        // ── Safety dim toggle ─────────────────────────────────
+        // When ON, every successful launch / move on a non-IVI
+        // display also mounts a semi-transparent overlay
+        // (`/dim.html?level=…`) on top. The scrim leaves a clear
+        // band at the bottom 28% so the speedometer stays
+        // readable regardless of how bright the app underneath
+        // is. When OFF, any mounted scrims get torn down.
+        $('#dimToggle').addEventListener('click', async function () {
+          state.dimEnabled = !state.dimEnabled;
+          var btn = $('#dimToggle');
+          btn.classList.toggle('on', state.dimEnabled);
+          $('#dimState').textContent = state.dimEnabled ? 'on' : 'off';
+          if (state.dimEnabled) {
+            await ensureDimForActiveTarget();
+          } else {
+            await clearAllDims();
+          }
         });
 
         // ── Boot ──────────────────────────────────────────────

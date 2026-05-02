@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Driver Safety Dim</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        /* Default scrim — readable apps below, gauges underneath
+         * stay visible when the WebView's compositor mixes our
+         * pixels with the OEM gauge layer. Tint biased slightly
+         * blue so the speedometer's amber/red highlights remain
+         * legible. The exact opacity is read from `?level=N` so
+         * the host can dim per-display without re-bundling. */
+        background: rgba(6, 9, 16, 0.45);
+      }
+      .clear-zone {
+        /* The bottom band where most BYD clusters render the speed
+         * digit + odometer. Punch a hole in our scrim there so
+         * the driver can read the speedometer regardless of how
+         * bright the app underneath is. Pure transparent — no
+         * gradient — to avoid any color shift on the gauge text. */
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 28%;
+        background: transparent;
+        /* Soft fade-in on top edge so the transition isn't harsh. */
+        mask-image: linear-gradient(to bottom, transparent 0, black 12%, black 100%);
+        -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 12%, black 100%);
+        background-color: rgba(0, 0, 0, 0);
+        backdrop-filter: none;
+      }
+      /* Override: the .clear-zone DIV's job is to "remove" the body
+       * scrim in that band. Achieve it with mix-blend-mode
+       * destination-out — the transparent black acts as a mask. */
+      .clear-zone {
+        background: rgba(0, 0, 0, 1);
+        mix-blend-mode: destination-out;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="clear-zone"></div>
+    <script>
+      // Tunable: ?level=0..1 sets the scrim opacity. Defaults to 0.45.
+      (function () {
+        var p = new URLSearchParams(location.search);
+        var level = parseFloat(p.get('level'));
+        if (!isNaN(level) && level >= 0 && level <= 1) {
+          document.body.style.background = 'rgba(6, 9, 16, ' + level + ')';
+        }
+      })();
+    </script>
+  </body>
+</html>
