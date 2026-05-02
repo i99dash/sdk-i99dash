@@ -176,46 +176,6 @@
         color: var(--accent);
         border-bottom-color: var(--accent);
       }
-      .soon {
-        margin-left: 4px;
-        padding: 1px 6px;
-        font-size: 9px;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        background: rgba(244, 162, 97, 0.15);
-        color: var(--warn);
-        border-radius: 999px;
-        vertical-align: middle;
-      }
-      .placeholder {
-        text-align: center;
-        padding: 36px 24px;
-        color: var(--text-1);
-      }
-      .placeholder .ic {
-        font-size: 32px;
-        color: var(--accent);
-        margin-bottom: 10px;
-      }
-      .placeholder .hd {
-        font-size: 15px;
-        font-weight: 500;
-        color: var(--text-0);
-        margin-bottom: 8px;
-      }
-      .placeholder .sub {
-        font-size: 13px;
-        line-height: 1.5;
-        max-width: 380px;
-        margin: 0 auto;
-      }
-      .placeholder code {
-        background: var(--bg-2);
-        padding: 1px 5px;
-        border-radius: 4px;
-        font-size: 12px;
-      }
 
       /* ── Body ────────────────────────────────────────────────── */
       .body {
@@ -485,8 +445,8 @@
       <!-- ── Tabs ──────────────────────────────────────────── -->
       <div class="tabs">
         <button class="tab active" data-tab="gallery">Gallery</button>
-        <button class="tab" data-tab="upload">Upload <span class="soon">soon</span></button>
-        <button class="tab" data-tab="gradient">Gradient <span class="soon">soon</span></button>
+        <button class="tab" data-tab="upload">Upload</button>
+        <button class="tab" data-tab="gradient">Gradient</button>
       </div>
 
       <!-- ── Body ──────────────────────────────────────────── -->
@@ -521,29 +481,37 @@
           </div>
         </div>
 
-        <!-- Upload — placeholder until Phase B `surface.setData` lands -->
+        <!-- Upload -->
         <div class="panel" data-panel="upload">
-          <div class="placeholder">
+          <label class="drop" id="drop">
             <div class="ic">⬆</div>
-            <div class="hd">Custom uploads coming in v0.2</div>
-            <div class="sub">
-              Image and video uploads need an out-of-band payload channel (Phase B
-              <code>surface.setData</code>) so large media doesn't hit the WebView URL limit. Until
-              then, the curated Gallery presets render on every screen exactly the same way.
-            </div>
+            <div class="hd">Drag image or video — or tap to browse</div>
+            <div class="sub">PNG / JPG / WebP / MP4 — up to 8&nbsp;MB</div>
+            <input type="file" id="fileInput" accept="image/*,video/*" />
+          </label>
+          <div class="uploaded-preview" id="uploadedPreview" style="display: none">
+            <div class="thumb" id="uploadedThumb"></div>
           </div>
         </div>
 
-        <!-- Gradient — placeholder until Phase B `surface.setData` lands -->
+        <!-- Gradient -->
         <div class="panel" data-panel="gradient">
-          <div class="placeholder">
-            <div class="ic">◐</div>
-            <div class="hd">Custom gradients coming in v0.2</div>
-            <div class="sub">
-              The live gradient picker ships alongside Upload — both depend on the same out-of-band
-              payload pass. The Gallery includes six handpicked gradients in the meantime (Nebula,
-              Aurora, Sunset, Neon&nbsp;Grid, Monochrome, Circuit).
+          <div class="gradient-preview" id="gradPreview"></div>
+          <div class="gradient-row">
+            <div class="colorpick">
+              <label>Start</label>
+              <input type="color" id="gradC1" value="#0f1c33" />
             </div>
+            <div class="colorpick">
+              <label>End</label>
+              <input type="color" id="gradC2" value="#c8a8ff" />
+            </div>
+          </div>
+          <div class="gradient-controls">
+            <button class="gradient-btn on" data-angle="135">Diagonal</button>
+            <button class="gradient-btn" data-angle="0">Top → Bottom</button>
+            <button class="gradient-btn" data-angle="90">Left → Right</button>
+            <button class="gradient-btn" data-angle="radial">Radial</button>
           </div>
         </div>
       </div>
@@ -581,14 +549,13 @@
         }
 
         // ── State ────────────────────────────────────────────
-        // Upload + gradient land in v0.2 once Phase B `surface.setData`
-        // ships an out-of-band payload channel. Until then the only
-        // active mode is gallery presets.
         var state = {
           targets: new Set(), // displayId set
           activeSurfaces: new Map(), // displayId → surfaceId
-          mode: null, // 'preset'
+          mode: null, // 'preset' | 'upload' | 'gradient'
           preset: null,
+          upload: null, // { dataUrl, kind: 'image'|'video' }
+          gradient: { c1: '#0f1c33', c2: '#c8a8ff', angle: 135 },
         };
 
         // ── DOM helpers ─────────────────────────────────────
@@ -697,10 +664,109 @@
           });
         });
 
+        // ── Upload ──────────────────────────────────────────
+        var drop = $('#drop');
+        var fi = $('#fileInput');
+
+        drop.addEventListener('dragover', function (e) {
+          e.preventDefault();
+          drop.classList.add('dragover');
+        });
+        drop.addEventListener('dragleave', function () {
+          drop.classList.remove('dragover');
+        });
+        drop.addEventListener('drop', function (e) {
+          e.preventDefault();
+          drop.classList.remove('dragover');
+          var f = e.dataTransfer.files[0];
+          if (f) handleFile(f);
+        });
+        fi.addEventListener('change', function (e) {
+          var f = e.target.files[0];
+          if (f) handleFile(f);
+        });
+
+        function handleFile(f) {
+          var MAX = 8 * 1024 * 1024;
+          if (f.size > MAX) {
+            toast('File too large — 8 MB max', 'err');
+            return;
+          }
+          var kind = f.type.startsWith('video/') ? 'video' : 'image';
+          var reader = new FileReader();
+          reader.onload = function () {
+            state.upload = { dataUrl: reader.result, kind: kind };
+            state.mode = 'upload';
+            // Preview
+            var prev = $('#uploadedPreview');
+            var thumb = $('#uploadedThumb');
+            prev.style.display = 'block';
+            thumb.innerHTML = '';
+            if (kind === 'image') {
+              var img = document.createElement('img');
+              img.src = reader.result;
+              thumb.appendChild(img);
+            } else {
+              var vid = document.createElement('video');
+              vid.src = reader.result;
+              vid.muted = true;
+              vid.loop = true;
+              vid.autoplay = true;
+              vid.playsInline = true;
+              thumb.appendChild(vid);
+            }
+            updateUI();
+          };
+          reader.readAsDataURL(f);
+        }
+
+        // ── Gradient ────────────────────────────────────────
+        var gC1 = $('#gradC1'),
+          gC2 = $('#gradC2'),
+          gPrev = $('#gradPreview');
+
+        function gradientCss(g) {
+          if (g.angle === 'radial') {
+            return 'radial-gradient(circle at 30% 30%, ' + g.c1 + ', ' + g.c2 + ')';
+          }
+          return 'linear-gradient(' + g.angle + 'deg, ' + g.c1 + ', ' + g.c2 + ')';
+        }
+
+        function refreshGradient() {
+          gPrev.style.background = gradientCss(state.gradient);
+          state.mode = 'gradient';
+          updateUI();
+        }
+
+        gC1.addEventListener('input', function () {
+          state.gradient.c1 = gC1.value;
+          refreshGradient();
+        });
+        gC2.addEventListener('input', function () {
+          state.gradient.c2 = gC2.value;
+          refreshGradient();
+        });
+        $$('.gradient-btn').forEach(function (b) {
+          b.addEventListener('click', function () {
+            $$('.gradient-btn').forEach(function (x) {
+              x.classList.remove('on');
+            });
+            b.classList.add('on');
+            var raw = b.dataset.angle;
+            state.gradient.angle = raw === 'radial' ? 'radial' : parseInt(raw, 10);
+            refreshGradient();
+          });
+        });
+        // initial paint
+        refreshGradient();
+
         // ── Apply / Clear ──────────────────────────────────
         function selectionLabel() {
           if (!state.mode) return 'Pick a wallpaper above';
           if (state.mode === 'preset') return 'Selected: ' + state.preset;
+          if (state.mode === 'upload')
+            return 'Uploaded ' + (state.upload.kind === 'video' ? 'video' : 'image');
+          if (state.mode === 'gradient') return 'Custom gradient';
           return '';
         }
 
@@ -711,11 +777,16 @@
           $('#apply').disabled = state.targets.size === 0 || !state.mode;
         }
 
-        // route(?preset=…) — wallpaper.html reads the preset class
+        // route(?src=…&kind=…&grad=…) — wallpaper.html parses
         function buildRoute() {
           var p = new URLSearchParams();
           if (state.mode === 'preset') {
             p.set('preset', state.preset);
+          } else if (state.mode === 'upload') {
+            p.set('src', state.upload.dataUrl);
+            p.set('kind', state.upload.kind);
+          } else if (state.mode === 'gradient') {
+            p.set('grad', gradientCss(state.gradient));
           }
           return '/wallpaper.html?' + p.toString();
         }
