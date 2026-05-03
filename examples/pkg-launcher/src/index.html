@@ -401,6 +401,12 @@
       .pad-dot.show {
         opacity: 1;
       }
+      /* Two-finger tap indicator — quick visual flash on the pad
+       * when the user does a 2-finger gesture so they have feedback
+       * that the pad recognised the multi-touch. */
+      .pad.two-finger {
+        background: linear-gradient(135deg, rgba(244, 162, 97, 0.15), var(--bg-0));
+      }
       /* Slot picker — lets the user re-target the touchpad onto a
        * different cluster slot (overlay / primary / base) without
        * re-launching. Sits in the touchpad modal header so it's one
@@ -425,6 +431,33 @@
         color: var(--accent);
         border-color: rgba(88, 199, 255, 0.5);
       }
+      /* Advanced toggle: small text-button in the modal header that
+       * unhides Driver 3 / Driver 4 alongside the default Driver
+       * card (which targets display 5 — the verified-visible slot).
+       * Persists via localStorage so power users don't need to re-
+       * enable each modal open. */
+      .adv-toggle {
+        margin-left: auto;
+        margin-right: 8px;
+        padding: 4px 10px;
+        font-size: 11px;
+        background: var(--bg-2);
+        color: var(--text-1);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        cursor: pointer;
+      }
+      .adv-toggle.on {
+        background: rgba(244, 162, 97, 0.18);
+        color: var(--warn);
+        border-color: rgba(244, 162, 97, 0.5);
+      }
+      .target-card.advanced {
+        display: none;
+      }
+      .targets.show-advanced .target-card.advanced {
+        display: flex;
+      }
     </style>
   </head>
 
@@ -432,7 +465,7 @@
     <div class="app">
       <header class="header">
         <h1>Pkg Launcher</h1>
-        <span class="pill">v0.5.5</span>
+        <span class="pill">v0.5.16</span>
         <div class="spacer"></div>
         <span class="status"> <span class="count" id="count">0</span> apps </span>
       </header>
@@ -462,6 +495,14 @@
         <div class="modal-header">
           <h2 id="targetTitle">Choose a screen</h2>
           <span class="sub" id="targetSub"></span>
+          <button
+            class="adv-toggle"
+            id="advToggle"
+            type="button"
+            title="Show all cluster slots for testing"
+          >
+            advanced
+          </button>
           <button class="close" data-close="target">×</button>
         </div>
         <div class="modal-body">
@@ -513,9 +554,11 @@
               <span class="sub">Front-seat panel</span>
             </div>
 
-            <div class="target-card" data-role="cluster">
-              <!-- Driver: instrument cluster, narrow strip behind the
-                   wheel. Steering wheel arc hints at position. -->
+            <!-- Default Driver card → display 5 (`_1` overlay slot,
+                 verified physically visible on the Leopard 8 test
+                 car). Tapping `advanced` in the header reveals the
+                 other two slots for per-app experimentation. -->
+            <div class="target-card" data-role="cluster" data-display-id="5">
               <svg viewBox="0 0 160 80" aria-hidden="true">
                 <rect
                   x="20"
@@ -543,7 +586,61 @@
                 <path d="M 30 70 Q 80 78 130 70" fill="none" stroke="#6c7a93" stroke-width="1.5" />
               </svg>
               <span class="caption">Driver</span>
-              <span class="sub">Cluster · behind wheel</span>
+              <span class="sub">cluster · behind wheel</span>
+            </div>
+
+            <div class="target-card advanced" data-role="cluster" data-display-id="3">
+              <svg viewBox="0 0 160 80" aria-hidden="true">
+                <rect
+                  x="20"
+                  y="28"
+                  width="120"
+                  height="32"
+                  rx="4"
+                  fill="#0a0e16"
+                  stroke="#f4a261"
+                  stroke-width="1.5"
+                />
+                <text
+                  x="80"
+                  y="49"
+                  text-anchor="middle"
+                  fill="#f4a261"
+                  font-size="14"
+                  font-weight="700"
+                >
+                  3
+                </text>
+              </svg>
+              <span class="caption">Driver 3</span>
+              <span class="sub">base slot</span>
+            </div>
+
+            <div class="target-card advanced" data-role="cluster" data-display-id="4">
+              <svg viewBox="0 0 160 80" aria-hidden="true">
+                <rect
+                  x="20"
+                  y="28"
+                  width="120"
+                  height="32"
+                  rx="4"
+                  fill="#0a0e16"
+                  stroke="#f4a261"
+                  stroke-width="1.5"
+                />
+                <text
+                  x="80"
+                  y="49"
+                  text-anchor="middle"
+                  fill="#f4a261"
+                  font-size="14"
+                  font-weight="700"
+                >
+                  4
+                </text>
+              </svg>
+              <span class="caption">Driver 4</span>
+              <span class="sub">_0 primary</span>
             </div>
           </div>
         </div>
@@ -564,8 +661,8 @@
         <div class="modal-body">
           <div class="pad-wrap">
             <div class="pad-info">
-              The pad below is shaped like the driver screen. Drag to move the cursor; release to
-              tap.
+              Drag to move the cursor; release to tap. The buttons below act on the cursor's current
+              position.
             </div>
             <div class="pad" id="pad">
               <div class="pad-dot" id="padDot"></div>
@@ -660,24 +757,20 @@
           // startActivity path.
           if (role === 'ivi') return null;
 
-          // Cluster: only the BASE XDJA slot
-          // (``fission_bg_XDJAScreenProjection`` with no ``_N`` suffix)
-          // is the one physically projected to the screen behind the
-          // wheel on Leopard 8. The shared `_0` (amap-contested
-          // primary) and `_1` (overlay) slots exist in `display.list`
-          // but aren't visible to the driver — earlier versions of
-          // this code prioritised them and the launches landed on
-          // invisible surfaces. Lock to base only; if a future device
-          // exposes a different cluster topology we'll add a
-          // host-side display role rather than re-introducing a
-          // priority list mini-app-side.
+          // Cluster: lock to the OVERLAY XDJA slot
+          // (``shared_fission_bg_XDJAScreenProjection_1``) — verified
+          // on the test car as the one physically projected to the
+          // screen behind the wheel. We've now tested all three:
+          //   * 0.5.5 / 0.5.7 → base (no suffix) — invisible.
+          //   * 0.5.6        → ``_0`` primary — amap-contested,
+          //                    invisible.
+          //   * 0.5.8 (this) → ``_1`` overlay — VISIBLE.
+          // If a future device exposes a different topology we'll
+          // add a host-side display role rather than re-introducing
+          // a priority list mini-app-side.
           if (role === 'cluster') {
             var d = state.displays.find(function (x) {
-              return (
-                roleOf(x) === 'cluster' &&
-                /^fission_bg_/i.test(x.name || '') &&
-                !/_\d+$/.test(x.name || '')
-              );
+              return roleOf(x) === 'cluster' && /_1$/.test(x.name || '');
             });
             return d ? d.id : null;
           }
@@ -773,16 +866,61 @@
         }
 
         // ── Target-picker modal ──────────────────────────────
+        // Advanced-mode toggle persisted across modal opens. When ON,
+        // the .targets grid gets `.show-advanced` which un-hides the
+        // Driver 3 / Driver 4 cards alongside the default Driver
+        // (display 5) — useful when a specific app lands better on
+        // a different XDJA slot than the verified default.
+        var ADV_KEY = 'pkg-launcher.advanced-targets.v1';
+        var advancedSlots = false;
+        try {
+          advancedSlots = localStorage.getItem(ADV_KEY) === '1';
+        } catch (_) {
+          // localStorage may be unavailable in some embeddings; fall
+          // through with default off.
+        }
+        function applyAdvanced() {
+          var grid = $('#targetGrid');
+          var btn = $('#advToggle');
+          if (advancedSlots) {
+            grid.classList.add('show-advanced');
+            btn.classList.add('on');
+          } else {
+            grid.classList.remove('show-advanced');
+            btn.classList.remove('on');
+          }
+        }
+        $('#advToggle').addEventListener('click', function () {
+          advancedSlots = !advancedSlots;
+          try {
+            localStorage.setItem(ADV_KEY, advancedSlots ? '1' : '0');
+          } catch (_) {}
+          applyAdvanced();
+        });
+
         function openTargetPicker(pkg) {
           state.pendingLaunch = pkg;
           $('#targetTitle').textContent = pkg.label || pkg.packageName;
           $('#targetSub').textContent = pkg.packageName;
+          applyAdvanced();
           // Disable cards whose role isn't actually present on this
           // car (e.g. no passenger panel installed). IVI is always on.
+          // For cluster cards with an explicit displayId, check that
+          // exact display exists rather than role-aggregating.
           var grid = $('#targetGrid');
           grid.querySelectorAll('.target-card').forEach(function (card) {
             var role = card.dataset.role;
-            var available = role === 'ivi' || pickByRole(role) != null;
+            var explicitId = card.dataset.displayId ? parseInt(card.dataset.displayId, 10) : null;
+            var available;
+            if (role === 'ivi') {
+              available = true;
+            } else if (explicitId != null) {
+              available = state.displays.some(function (d) {
+                return d.id === explicitId;
+              });
+            } else {
+              available = pickByRole(role) != null;
+            }
             card.classList.toggle('disabled', !available);
           });
           $('#targetModal').classList.add('show');
@@ -797,13 +935,17 @@
           if (closeBtn) return closeTargetPicker();
           var card = e.target.closest('.target-card');
           if (card && !card.classList.contains('disabled') && state.pendingLaunch) {
-            launchOnRole(state.pendingLaunch, card.dataset.role);
+            // Pass the explicit display id when the card declares
+            // one (Driver 3 / 4 / 5) so we can target a specific
+            // cluster slot for testing without re-publishing.
+            var explicitId = card.dataset.displayId ? parseInt(card.dataset.displayId, 10) : null;
+            launchOnRole(state.pendingLaunch, card.dataset.role, explicitId);
             closeTargetPicker();
           }
         });
 
         // ── Launch routing ───────────────────────────────────
-        async function launchOnRole(pkg, role) {
+        async function launchOnRole(pkg, role, explicitDisplayId) {
           var args = { packageName: pkg.packageName };
           var op = 'pkg.launch';
           // Cluster targets MUST go through pkg.launch_cluster — the
@@ -811,7 +953,7 @@
           // host 1.4.0 with a `role:requires_cluster_op` error.
           if (role === 'cluster') {
             op = 'pkg.launch_cluster';
-            args.displayId = pickByRole('cluster');
+            args.displayId = explicitDisplayId != null ? explicitDisplayId : pickByRole('cluster');
             if (args.displayId == null) {
               toast('No cluster display detected', 'err');
               return;
@@ -825,13 +967,17 @@
           }
           // role === 'ivi' → no displayId; host hits startActivity
           // on the default display.
+          // Stamp display id into the toast for cluster launches so
+          // we can correlate "did the app appear" ↔ "which slot we
+          // hit" while triaging the XDJA topology.
+          var idLabel = args.displayId != null ? ' [d=' + args.displayId + ']' : '';
           try {
             var r = await call(op, args);
             if (!r.ok) {
-              toast(pkg.label + ': ' + (r.error || r.path || 'denied'), 'err');
+              toast(pkg.label + idLabel + ': ' + (r.error || r.path || 'denied'), 'err');
               return;
             }
-            toast(pkg.label + ' → ' + (r.path || 'launched'));
+            toast(pkg.label + idLabel + ' → ' + (r.path || 'launched'));
             // Record every package we land on a cluster slot so Clear
             // can take down the whole stack, not just the last one,
             // AND so the touchpad targets the right displayId (not
@@ -914,15 +1060,15 @@
         // (b) taps a slot pill in the modal header.
         state.padDisplayId = null;
 
-        function lastLaunchedClusterId() {
-          // Map preserves insertion order; the most recent launch
-          // is the last value.
-          if (state.clusterLaunches.size === 0) return null;
-          var values = Array.from(state.clusterLaunches.values());
-          return values[values.length - 1];
-        }
         function defaultPadId() {
-          return lastLaunchedClusterId() ?? pickByRole('cluster');
+          // Single id for launch + cursor + gesture. The host
+          // (DisplayInputResolver, since 1.5.2) auto-resolves the
+          // launch-slot id to the surface display where input lands,
+          // so mini-apps no longer need to track XDJA's
+          // launch-vs-input asymmetry. Pre-resolver pkg-launcher
+          // (≤ 0.5.15) returned the base XDJA slot here as a
+          // workaround; that's now redundant.
+          return pickByRole('cluster');
         }
         function refreshPadSub() {
           if (state.padDisplayId == null) {
@@ -1024,21 +1170,29 @@
 
         // Touchpad gesture-detection state machine.
         //
-        // We don't know what the user meant until they let go (or
-        // hold long enough). Three terminal gestures fire on the
-        // cluster, all gated on what happens between pointerdown
-        // and pointerup:
+        // Laptop-trackpad style — every gesture is finger-driven, no
+        // buttons. Recognised gestures:
         //
-        //   * Long-press  — pointer down for >= LONG_PRESS_MS with
-        //                   total motion <= LONG_PRESS_TOL_PX.
-        //                   Fires from a setTimeout — no pointerup
-        //                   needed; release-tap is suppressed.
-        //   * Swipe       — pointerup with motion >= SWIPE_THRESH_PX
-        //                   from the down point. Fires
-        //                   gesture.swipe(from→to) at release.
-        //   * Tap         — pointerup with motion < SWIPE_THRESH_PX
-        //                   AND duration < LONG_PRESS_MS. Fires
-        //                   gesture.tap at the release point.
+        //   ── 1 finger ──
+        //   * Tap         — quick down+up, motion < SWIPE_THRESH_PX
+        //                   → gesture.tap at release point.
+        //   * Long-press  — finger down ≥ LONG_PRESS_MS with motion
+        //                   ≤ LONG_PRESS_TOL_PX → gesture.longPress
+        //                   at down point. Release-tap suppressed.
+        //   * Swipe       — pointerup with motion ≥ SWIPE_THRESH_PX
+        //                   → gesture.swipe(from→to). Wall-clock
+        //                   duration so apps can tell flick vs drag.
+        //
+        //   ── 2 fingers ──
+        //   * Two-finger tap   — both pointers down + up within
+        //                        TAP_MAX_MS, < SWIPE_THRESH_PX motion
+        //                        each → gesture.longPress at midpoint
+        //                        (right-click semantics on Android).
+        //   * Two-finger swipe — both pointers down + significant
+        //                        midpoint motion → gesture.swipe at
+        //                        midpoint with shorter duration so
+        //                        apps interpret it as scroll, not
+        //                        a drag.
         //
         // Thresholds are CSS pixels on the IVI pad (not cluster
         // pixels). The pad surface is ~720–1000 px wide depending
@@ -1049,49 +1203,50 @@
         var LONG_PRESS_MS = 500;
         var LONG_PRESS_TOL_PX = 10;
         var SWIPE_THRESH_PX = 30;
+        var TAP_MAX_MS = 350; // upper bound for "tap" intent
 
-        var gesture = {
-          downX: 0,
-          downY: 0,
-          downAt: 0,
-          maxDeltaPx: 0,
-          longPressTimer: null,
-          longPressFired: false,
-        };
+        // Active pointer map. Key = pointerId. Value carries the
+        // pointer's down + last position so we can compute midpoints
+        // and per-finger deltas when the second finger lands.
+        var activePointers = new Map();
+        // True once a session has had ≥2 simultaneous pointers — used
+        // so a brief stutter (release one, hold one) still treats
+        // the session as multi-touch instead of switching modes
+        // mid-gesture.
+        var sessionMultiTouch = false;
+        var longPressTimer = null;
+        var longPressFired = false;
+        var cursorClusterPos = { x: 960, y: 360 };
 
-        function resetGesture() {
-          if (gesture.longPressTimer != null) {
-            clearTimeout(gesture.longPressTimer);
-            gesture.longPressTimer = null;
-          }
-          gesture.longPressFired = false;
-          gesture.maxDeltaPx = 0;
-        }
-
-        async function fireLongPress() {
-          gesture.longPressFired = true;
-          // Long-press location is the down-point — Android's own
-          // long-press semantics anchor at touch-down, not the
-          // current finger position (which may have drifted
-          // within the tolerance).
+        // Translate a pad-relative pixel point to cluster coords.
+        // Used wherever we need to feed cluster gesture ops (which
+        // expect 1920×720) from pad pixels.
+        function padPxToCluster(clientX, clientY) {
           var rect = pad.getBoundingClientRect();
-          var fx = (gesture.downX - rect.left) / Math.max(1, rect.width);
-          var fy = (gesture.downY - rect.top) / Math.max(1, rect.height);
+          var fx = (clientX - rect.left) / Math.max(1, rect.width);
+          var fy = (clientY - rect.top) / Math.max(1, rect.height);
           fx = Math.min(Math.max(fx, 0), 1);
           fy = Math.min(Math.max(fy, 0), 1);
-          var x = Math.round(fx * 1920);
-          var y = Math.round(fy * 720);
+          return { x: Math.round(fx * 1920), y: Math.round(fy * 720) };
+        }
+
+        function clearLongPress() {
+          if (longPressTimer != null) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+        }
+
+        async function fireLongPressFor(p) {
+          longPressFired = true;
+          var c = padPxToCluster(p.startX, p.startY);
           var clusterId = state.padDisplayId;
-          padStatus.textContent = 'Long-press (' + x + ', ' + y + ')';
+          padStatus.textContent = 'Long-press (' + c.x + ', ' + c.y + ')';
           try {
-            // gesture.longPress is tier-2 with requires_step_up=true,
-            // so each one will pop a fresh consent unless the host
-            // has a pre-attached cap. That's the host's call —
-            // we're just dispatching.
             var r = await call('gesture.longPress', {
               displayId: clusterId,
-              x: x,
-              y: y,
+              x: c.x,
+              y: c.y,
               durationMs: LONG_PRESS_MS,
             });
             if (!r || r.ok === false) {
@@ -1102,140 +1257,239 @@
           }
         }
 
+        function resetSession() {
+          clearLongPress();
+          longPressFired = false;
+          sessionMultiTouch = false;
+        }
+
         pad.addEventListener('pointerdown', async function (e) {
-          dragging = true;
-          pad.classList.add('touched');
           pad.setPointerCapture(e.pointerId);
-          resetGesture();
-          gesture.downX = e.clientX;
-          gesture.downY = e.clientY;
-          gesture.downAt = Date.now();
-          // Local feedback first — never wait on a host roundtrip
-          // for the visual response under the finger.
-          moveDot(e);
-          padDot.classList.add('show');
-          // Arm the long-press timer. Cancelled in pointermove if
-          // motion exceeds tolerance, or in pointerup if released
-          // before the deadline.
-          gesture.longPressTimer = setTimeout(fireLongPress, LONG_PRESS_MS);
-          await ensurePadAttached();
-          if (state.padAttached) {
-            // Cluster cursor: send cluster-mapped coords so the
-            // host-drawn cursor lands on the cluster display, not
-            // on the IVI. Earlier versions sent IVI page coords
-            // (e.clientX/Y) which caused the cursor to render on
-            // the head unit — opposite of what the user wanted.
-            call('cursor.move', padToCluster(e)).catch(function () {});
+          activePointers.set(e.pointerId, {
+            startX: e.clientX,
+            startY: e.clientY,
+            currentX: e.clientX,
+            currentY: e.clientY,
+            startAt: Date.now(),
+            maxDeltaPx: 0,
+          });
+          // First finger arms the standard one-finger long-press
+          // timer + drives the cursor. A second finger landing
+          // before the timer fires upgrades the session to
+          // multi-touch and cancels the timer (two-finger gestures
+          // fire on release, never from the timer).
+          if (activePointers.size === 1) {
+            pad.classList.add('touched');
+            moveDot(e);
+            padDot.classList.add('show');
+            longPressFired = false;
+            clearLongPress();
+            longPressTimer = setTimeout(function () {
+              var p = activePointers.get(e.pointerId);
+              // Only fire if still single-touch (a second finger
+              // would have made it multi) and motion stayed inside
+              // the tolerance bubble.
+              if (activePointers.size === 1 && p && p.maxDeltaPx <= LONG_PRESS_TOL_PX) {
+                fireLongPressFor(p);
+              }
+            }, LONG_PRESS_MS);
+            await ensurePadAttached();
+            if (state.padAttached) {
+              cursorClusterPos = padToCluster(e);
+              call('cursor.move', cursorClusterPos).catch(function () {});
+            }
+            padStatus.textContent = 'Dragging…';
+          } else if (activePointers.size === 2) {
+            // Second finger — switch to multi-touch mode for the
+            // whole session. Hide the IVI-side cursor since we
+            // don't want it darting between fingers.
+            sessionMultiTouch = true;
+            pad.classList.add('two-finger');
+            padDot.classList.remove('show');
+            clearLongPress();
+            padStatus.textContent = '2-finger gesture…';
           }
-          padStatus.textContent = 'Dragging…';
         });
+
         pad.addEventListener('pointermove', function (e) {
-          if (!dragging) return;
-          moveDot(e);
-          var dx = e.clientX - gesture.downX;
-          var dy = e.clientY - gesture.downY;
-          var delta = Math.hypot(dx, dy);
-          if (delta > gesture.maxDeltaPx) gesture.maxDeltaPx = delta;
-          // Cancel the pending long-press as soon as motion exceeds
-          // the tolerance — past that, the user clearly meant to
-          // drag, not hold.
-          if (gesture.longPressTimer != null && delta > LONG_PRESS_TOL_PX) {
-            clearTimeout(gesture.longPressTimer);
-            gesture.longPressTimer = null;
+          var p = activePointers.get(e.pointerId);
+          if (!p) return;
+          p.currentX = e.clientX;
+          p.currentY = e.clientY;
+          var d = Math.hypot(e.clientX - p.startX, e.clientY - p.startY);
+          if (d > p.maxDeltaPx) p.maxDeltaPx = d;
+          // Cancel the long-press once motion crosses the tolerance.
+          if (longPressTimer != null && d > LONG_PRESS_TOL_PX) {
+            clearLongPress();
           }
-          if (state.padAttached) {
-            // Hot-path; fire-and-forget at pointer cadence (~60Hz).
-            // The host's cursor family bypasses the tier-2 gate for
-            // 5s after attach to support drag without per-frame
-            // cap I/O — see family memo.
-            call('cursor.move', padToCluster(e)).catch(function () {});
+          if (!sessionMultiTouch && activePointers.size === 1) {
+            // One-finger drag: move the cursor on the cluster +
+            // the IVI-side dot under the finger. Hot-path; never
+            // await.
+            moveDot(e);
+            if (state.padAttached) {
+              cursorClusterPos = padToCluster(e);
+              call('cursor.move', cursorClusterPos).catch(function () {});
+            }
           }
+          // Multi-touch path doesn't move the cursor — it doesn't
+          // make physical sense to follow a pinch midpoint with a
+          // pointer cursor. The gesture fires on the second
+          // pointerup with the midpoint delta.
         });
+
         pad.addEventListener('pointerup', async function (e) {
-          if (!dragging) return;
-          dragging = false;
-          pad.releasePointerCapture(e.pointerId);
+          var p = activePointers.get(e.pointerId);
+          activePointers.delete(e.pointerId);
+          try {
+            pad.releasePointerCapture(e.pointerId);
+          } catch (_) {}
+
+          // ── Multi-touch path ─────────────────────────────────
+          // Fires on the LAST pointer to lift in a 2-finger
+          // session. Even if the user releases one finger before
+          // the other, sessionMultiTouch stays true so we
+          // dispatch the right gesture once the pad is fully
+          // released.
+          if (sessionMultiTouch) {
+            if (activePointers.size > 0) {
+              // Still fingers down — wait for the last lift.
+              return;
+            }
+            pad.classList.remove('two-finger');
+            // We need at least one snapshot to compute the gesture.
+            // p is the last finger we just lifted; capture its
+            // partner from before via maxDeltaPx via padStatus only
+            // — for the dispatch we use the lifted finger's start
+            // and end. Apps usually don't care which of the two
+            // fingers we sampled as long as direction matches.
+            var clusterId = state.padDisplayId;
+            var fromC = padPxToCluster(p.startX, p.startY);
+            var toC = padPxToCluster(p.currentX, p.currentY);
+            var dx = p.currentX - p.startX;
+            var dy = p.currentY - p.startY;
+            var moved = Math.hypot(dx, dy);
+            var dur = Date.now() - p.startAt;
+
+            if (moved < SWIPE_THRESH_PX && dur < TAP_MAX_MS) {
+              // 2-finger tap → long-press at the down-point.
+              // Android maps long-press to context-menu (the
+              // closest equivalent of a right-click).
+              padStatus.textContent =
+                '2-finger tap → long-press (' + fromC.x + ', ' + fromC.y + ')';
+              try {
+                var r = await call('gesture.longPress', {
+                  displayId: clusterId,
+                  x: fromC.x,
+                  y: fromC.y,
+                  durationMs: LONG_PRESS_MS,
+                });
+                if (!r || r.ok === false) {
+                  padStatus.textContent =
+                    '2-finger long-press failed: ' + (r && r.error ? r.error : 'denied');
+                }
+              } catch (err) {
+                padStatus.textContent = '2-finger long-press failed: ' + (err && err.message);
+              }
+              resetSession();
+              return;
+            }
+
+            // 2-finger swipe → scroll. Use a longer baseline
+            // duration so it reads as scroll, not flick. Apps
+            // that support 2-finger scroll on Android receive
+            // ACTION_SCROLL via the a11y gesture stream; for ones
+            // that don't, this still moves their content because
+            // dispatchGesture replays the path as touch events.
+            var scrollDur = Math.max(120, dur);
+            padStatus.textContent =
+              '2-finger scroll (' + fromC.x + ',' + fromC.y + ' → ' + toC.x + ',' + toC.y + ')';
+            try {
+              var sr = await call('gesture.swipe', {
+                displayId: clusterId,
+                fromX: fromC.x,
+                fromY: fromC.y,
+                toX: toC.x,
+                toY: toC.y,
+                durationMs: scrollDur,
+              });
+              if (!sr || sr.ok === false) {
+                padStatus.textContent =
+                  '2-finger scroll failed: ' + (sr && sr.error ? sr.error : 'denied');
+              }
+            } catch (err) {
+              padStatus.textContent = '2-finger scroll failed: ' + (err && err.message);
+            }
+            resetSession();
+            return;
+          }
+
+          // ── Single-touch path ────────────────────────────────
           padDot.classList.remove('show');
           // Long-press already fired from the timer — release is
           // just the lift-off, no further gesture to dispatch.
-          if (gesture.longPressFired) {
-            resetGesture();
+          if (longPressFired) {
+            resetSession();
             return;
           }
-          // Cancel any still-pending long-press timer (released
-          // before the deadline).
-          if (gesture.longPressTimer != null) {
-            clearTimeout(gesture.longPressTimer);
-            gesture.longPressTimer = null;
-          }
+          clearLongPress();
+          if (!p) return;
 
-          var clusterId = state.padDisplayId;
-          var fromRect = pad.getBoundingClientRect();
-          var fromX = Math.round(
-            Math.min(
-              Math.max((gesture.downX - fromRect.left) / Math.max(1, fromRect.width), 0),
-              1,
-            ) * 1920,
-          );
-          var fromY = Math.round(
-            Math.min(
-              Math.max((gesture.downY - fromRect.top) / Math.max(1, fromRect.height), 0),
-              1,
-            ) * 720,
-          );
-          var to = padToCluster(e);
+          var clusterId2 = state.padDisplayId;
+          var from = padPxToCluster(p.startX, p.startY);
+          var to = padPxToCluster(p.currentX, p.currentY);
 
-          if (gesture.maxDeltaPx >= SWIPE_THRESH_PX) {
-            // Swipe path. Duration is wall-clock — the host needs
-            // a real number to pace the synthetic event train (a
-            // 50 ms swipe vs a 500 ms swipe scrolls very differently
-            // in apps like maps).
-            var durationMs = Math.max(50, Date.now() - gesture.downAt);
+          if (p.maxDeltaPx >= SWIPE_THRESH_PX) {
+            // 1-finger swipe → wall-clock-paced gesture.swipe.
+            // Apps interpret short flicks as scroll, long drags
+            // as drag-and-drop — duration matters, so use real
+            // wall-clock time.
+            var durationMs = Math.max(50, Date.now() - p.startAt);
             padStatus.textContent =
-              'Swipe (' + fromX + ',' + fromY + ' → ' + to.x + ',' + to.y + ')';
+              'Swipe (' + from.x + ',' + from.y + ' → ' + to.x + ',' + to.y + ')';
             try {
-              var r = await call('gesture.swipe', {
-                displayId: clusterId,
-                fromX: fromX,
-                fromY: fromY,
+              var r2 = await call('gesture.swipe', {
+                displayId: clusterId2,
+                fromX: from.x,
+                fromY: from.y,
                 toX: to.x,
                 toY: to.y,
                 durationMs: durationMs,
               });
-              if (!r || r.ok === false) {
-                padStatus.textContent = 'Swipe failed: ' + (r && r.error ? r.error : 'denied');
+              if (!r2 || r2.ok === false) {
+                padStatus.textContent = 'Swipe failed: ' + (r2 && r2.error ? r2.error : 'denied');
               }
             } catch (err) {
               padStatus.textContent = 'Swipe failed: ' + (err && err.message);
             }
-            resetGesture();
+            resetSession();
             return;
           }
 
-          // Tap path — small motion, quick release.
+          // Tap.
           padStatus.textContent = 'Tap (' + to.x + ', ' + to.y + ')';
           try {
-            var r2 = await call('gesture.tap', {
-              displayId: clusterId,
+            var rt = await call('gesture.tap', {
+              displayId: clusterId2,
               x: to.x,
               y: to.y,
             });
-            if (!r2 || r2.ok === false) {
-              padStatus.textContent = 'Tap failed: ' + (r2 && r2.error ? r2.error : 'denied');
+            if (!rt || rt.ok === false) {
+              padStatus.textContent = 'Tap failed: ' + (rt && rt.error ? rt.error : 'denied');
             }
           } catch (err) {
             padStatus.textContent = 'Tap failed: ' + (err && err.message);
           }
-          resetGesture();
+          resetSession();
         });
-        pad.addEventListener('pointercancel', function () {
-          // Pointer was hijacked (system gesture, multi-touch, etc.)
-          // Hide the dot so we don't leave a stale indicator and
-          // drop any pending long-press so it doesn't fire after
-          // the cancel.
-          dragging = false;
-          padDot.classList.remove('show');
-          resetGesture();
+
+        pad.addEventListener('pointercancel', function (e) {
+          activePointers.delete(e.pointerId);
+          if (activePointers.size === 0) {
+            padDot.classList.remove('show');
+            pad.classList.remove('two-finger');
+            resetSession();
+          }
         });
 
         // ── Search ───────────────────────────────────────────

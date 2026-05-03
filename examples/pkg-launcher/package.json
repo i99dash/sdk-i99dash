@@ -1,6 +1,6 @@
 {
   "name": "i99dash-example-pkg-launcher",
-  "version": "0.5.5",
+  "version": "0.5.16",
   "private": true,
   "description": "Phase C reference mini-app — launches installed packages on any display + manages the boot-launch list.",
   "type": "module",
