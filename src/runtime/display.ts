@@ -4,11 +4,13 @@
 /// declared in `manifest.permissions[]` as `display.read`.
 ///
 ///     const displays = await client.display.list();
-///     const cluster  = displays.find(d => d.isCluster);
-///     if (cluster) {
-///       const sfc = await client.surface.create({ displayId: cluster.id });
-///       // ...
-///     }
+///     // Pick by role rather than the legacy isCluster flag — role
+///     // is the one the host gates pkg.launch / pkg.launch_cluster
+///     // against, so what you see here is what the launch path
+///     // accepts.
+///     const ivi       = displays.find(d => d.role === 'ivi');
+///     const passenger = displays.find(d => d.role === 'passenger');
+///     const cluster   = displays.find(d => d.role === 'cluster');
 
 import type { Bridge } from './bridge.js';
 import {
@@ -28,11 +30,28 @@ export interface DisplaySnapshot {
   /// True when the display advertises `FLAG_PRESENTATION` —
   /// usually a virtual display (passenger, cluster, HUD).
   isPresentation: boolean;
-  /// Heuristic flag set by the host when the display name
-  /// matches the BYD cluster naming convention
-  /// (`fission_bg_XDJAScreenProjection*`). Falsifiable per device:
-  /// inspect `name` if you need precise control.
+  /// Legacy: equivalent to `role === 'cluster'`. Kept for the
+  /// initial Phase-A SDK clients; new code should read `role`
+  /// directly so passenger / unknown surfaces are distinguishable
+  /// from each other.
   isCluster: boolean;
+  /// Mini-app-facing role classification, set by the host:
+  ///
+  ///   * `'ivi'`       — head-unit display (id 0). pkg.launch +
+  ///                     surface.create accept this.
+  ///   * `'passenger'` — non-default external touchscreen (the
+  ///                     Leopard 8 "fse" panel). pkg.launch
+  ///                     accepts this.
+  ///   * `'cluster'`   — driver-instrument virtual display. ONLY
+  ///                     `pkg.launchCluster` / `pkg.moveCluster`
+  ///                     accept this — the standard launch op
+  ///                     returns `error: 'role:requires_cluster_op'`.
+  ///                     Requires the Tier-3 `pkg.launch.cluster`
+  ///                     permission in manifest.
+  ///   * `'unknown'`   — anything the host can't classify; never
+  ///                     accepted as a launch / move target
+  ///                     regardless of permission.
+  role: 'ivi' | 'passenger' | 'cluster' | 'unknown';
 }
 
 /// Hot-plug event the host pushes when displays are added, removed,
