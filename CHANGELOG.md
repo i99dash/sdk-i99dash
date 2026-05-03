@@ -2,6 +2,22 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.0](https://github.com/i99dash/i99dash-sdk/compare/v1.5.0...v1.6.0) (2026-05-03)
+
+
+### Features
+
+* **cli:** i99dash init --template cluster-widget + Renovate/Dependabot automation ([#18](https://github.com/i99dash/i99dash-sdk/issues/18)) ([6f63f3f](https://github.com/i99dash/i99dash-sdk/commit/6f63f3f5b267f2cead3f95ddd96a9054b4f3cecd))
+* **dev-server:** native-capability fakes for display/surface/cursor/gesture/pkg/boot ([#17](https://github.com/i99dash/i99dash-sdk/issues/17)) ([6b51344](https://github.com/i99dash/i99dash-sdk/commit/6b51344d60248bb0b792589649675272e7172a59))
+* **examples:** pkg-launcher — Phase C reference mini-app ([#16](https://github.com/i99dash/i99dash-sdk/issues/16)) ([582bb5b](https://github.com/i99dash/i99dash-sdk/commit/582bb5b268dcd2acc740533225c6277361bbe8fd))
+* **runtime:** batched updates to display/location/pkg + pkg-launcher example ([d19ba74](https://github.com/i99dash/i99dash-sdk/commit/d19ba74d8d4c5013fa4cb0d6329338a3ed75d163))
+* **sdk:** Phase C — PkgController + BootController ([#15](https://github.com/i99dash/i99dash-sdk/issues/15)) ([f9a473a](https://github.com/i99dash/i99dash-sdk/commit/f9a473a55a7dee995251d4ac6bd50cc0a4755686))
+
+
+### Bug Fixes
+
+* **dash-wallpaper:** replace native color picker with tap-friendly swatch grid ([#13](https://github.com/i99dash/i99dash-sdk/issues/13)) ([819a21b](https://github.com/i99dash/i99dash-sdk/commit/819a21beb34cef050181b5ed43427d5058667b32))
+
 ## [1.5.0](https://github.com/i99dash/i99dash-sdk/compare/v1.4.0...v1.5.0) (2026-05-02)
 
 
