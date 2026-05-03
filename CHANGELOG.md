@@ -2,6 +2,14 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.7.0](https://github.com/i99dash/i99dash-sdk/compare/v1.6.0...v1.7.0) (2026-05-03)
+
+
+### Features
+
+* **examples:** pkg-launcher + dash-wallpaper consume host 1.6 fields ([#24](https://github.com/i99dash/i99dash-sdk/issues/24)) ([5ebb17b](https://github.com/i99dash/i99dash-sdk/commit/5ebb17b3988c0dd8296f923090da2c504587f016))
+* **pkg-launcher:** drop launch-vs-input heuristic now host resolves it ([#22](https://github.com/i99dash/i99dash-sdk/issues/22)) ([09327d5](https://github.com/i99dash/i99dash-sdk/commit/09327d54695aef865ed8e02a6ab2efba4459669b))
+
 ## [1.6.0](https://github.com/i99dash/i99dash-sdk/compare/v1.5.0...v1.6.0) (2026-05-03)
 
 
