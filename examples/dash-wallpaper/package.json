@@ -1,6 +1,6 @@
 {
   "name": "i99dash-example-dash-wallpaper",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Customize every screen in the car — gallery, upload, or live gradient. Renders on IVI, passenger screen, and cluster simultaneously via the surface family.",
   "type": "module",

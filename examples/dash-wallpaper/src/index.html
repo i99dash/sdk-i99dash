@@ -441,7 +441,13 @@
       <!-- ── Header ────────────────────────────────────────── -->
       <header class="header">
         <h1>Dash Wallpaper</h1>
-        <span class="pill version">v0.1.0</span>
+        <span class="pill version">v0.1.4</span>
+        <!-- Trim chip — populated from `display.list`'s `vehicle`
+             field (host 1.6+). Hidden when the host doesn't supply
+             one (older builds, dev runner). Helps users (and triagers)
+             see which trim profile is active without opening
+             developer tools. -->
+        <span class="pill" id="trimPill" hidden></span>
         <span class="spacer"></span>
         <span class="status"><span class="count" id="targetCount">0</span> screens selected</span>
       </header>
@@ -594,6 +600,10 @@
 
         // ── Display picker ──────────────────────────────────
         function displayLabel(d) {
+          // Prefer the host-supplied overrideLabel ("Driver" on L8 /
+          // L5L per VehicleProfile) so the chip matches what the
+          // rest of i99dash calls this display.
+          if (d.overrideLabel) return { name: d.overrideLabel, meta: d.width + '×' + d.height };
           if (d.isDefault) return { name: 'Head Unit', meta: d.width + '×' + d.height };
           if (d.name && d.name.toLowerCase() === 'fse')
             return { name: 'Passenger', meta: d.width + '×' + d.height };
@@ -609,11 +619,46 @@
           return { name: d.name || 'Display ' + d.id, meta: d.width + '×' + d.height };
         }
 
+        function renderTrimPill(vehicle) {
+          var pill = $('#trimPill');
+          if (!pill) return;
+          var label =
+            vehicle && (vehicle.friendlyName || vehicle.variantId || vehicle.dilinkFamily);
+          if (!label) {
+            pill.hidden = true;
+            return;
+          }
+          var detail =
+            vehicle.variantId && vehicle.friendlyName !== vehicle.variantId
+              ? ' (' + vehicle.variantId + ')'
+              : '';
+          pill.textContent = label + detail;
+          pill.hidden = false;
+        }
+
         async function loadDisplays() {
           var r = await call('display.list');
           var all = (r && r.displays) || [];
+          // host 1.6+ ships {variantId, friendlyName, dilinkFamily}
+          // alongside the displays. Older hosts return undefined —
+          // we hide the trim pill in that case.
+          renderTrimPill((r && r.vehicle) || null);
+          // Filter out shadow / duplicate displays the active
+          // VehicleProfile flags (e.g. display 3 on L8 mirrors 5).
+          // Older hosts (no `hidden` field) leave every entry through.
+          var visible = all.filter(function (d) {
+            return !d.hidden;
+          });
+          // Whether the cluster is physically reachable on this trim.
+          // False on Leopard 5 / 5 Ultra / 7 / HAN L. We still render
+          // the cluster chip but disable it + tooltip "why" so users
+          // don't tap into a guaranteed-fail surface.create call.
+          var clusterOk = visible.some(function (d) {
+            return d.isCluster && d.clusterAvailable !== false;
+          });
+          var trimName = r && r.vehicle && (r.vehicle.friendlyName || r.vehicle.variantId);
           // Order: IVI, passenger, friendly cluster slot, then any others.
-          var ordered = all.slice().sort(function (a, b) {
+          var ordered = visible.slice().sort(function (a, b) {
             var rank = function (d) {
               if (d.isDefault) return 0;
               if (d.name && d.name.toLowerCase() === 'fse') return 1;
@@ -628,9 +673,15 @@
           host.innerHTML = '';
           ordered.forEach(function (d) {
             var lbl = displayLabel(d);
+            var clusterUnavailable = d.isCluster && d.clusterAvailable === false && !clusterOk;
+            var disabled = d.isDefault || clusterUnavailable;
             var chip = document.createElement('div');
-            chip.className = 'chip' + (d.isDefault ? ' disabled' : '');
+            chip.className = 'chip' + (disabled ? ' disabled' : '');
             chip.dataset.displayId = d.id;
+            if (clusterUnavailable) {
+              chip.title =
+                'Cluster not supported on this trim' + (trimName ? ' (' + trimName + ')' : '');
+            }
             chip.innerHTML =
               '<span class="dot"></span>' +
               '<span class="name">' +
@@ -639,7 +690,7 @@
               '<span class="meta">' +
               lbl.meta +
               '</span>';
-            if (!d.isDefault) {
+            if (!disabled) {
               chip.addEventListener('click', function () {
                 if (state.targets.has(d.id)) state.targets.delete(d.id);
                 else state.targets.add(d.id);

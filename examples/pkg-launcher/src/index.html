@@ -243,6 +243,13 @@
         color: var(--err);
       }
 
+      /* The search input visibly indicates "tap me to type" by
+       * matching the keyboard's accent on focus, not the OS caret. */
+      .search input:focus {
+        border-color: var(--accent);
+        background: rgba(88, 199, 255, 0.04);
+      }
+
       /* Modal — shared shell */
       .modal {
         position: fixed;
@@ -465,7 +472,13 @@
     <div class="app">
       <header class="header">
         <h1>Pkg Launcher</h1>
-        <span class="pill">v0.5.16</span>
+        <span class="pill">v0.5.23</span>
+        <!-- Trim chip — populated from `display.list`'s `vehicle`
+             field (host 1.6+). Hidden when the host doesn't supply
+             one (older builds, dev runner). Knowing the trim helps
+             during triage when launches behave unexpectedly across
+             cars; prevents devs from guessing in chat. -->
+        <span class="pill" id="trimPill" hidden></span>
         <div class="spacer"></div>
         <span class="status"> <span class="count" id="count">0</span> apps </span>
       </header>
@@ -659,7 +672,7 @@
           <button class="close" data-close="touchpad">×</button>
         </div>
         <div class="modal-body">
-          <div class="pad-wrap">
+          <div class="pad-wrap" id="padPane">
             <div class="pad-info">
               Drag to move the cursor; release to tap. The buttons below act on the cursor's current
               position.
@@ -708,7 +721,11 @@
         // ── State ────────────────────────────────────────────
         var state = {
           packages: [], // PackageInfo[]
-          displays: [], // DisplaySnapshot[] — used to resolve role→id
+          displays: [], // DisplaySnapshot[] — used to resolve role→id.
+          // Holds the FULL list including hidden duplicates; consumers
+          // that should ignore shadow displays (the picker, role
+          // resolver) call visibleDisplays() instead.
+          vehicle: null, // {variantId, friendlyName, dilinkFamily} — host 1.6+
           filter: '',
           pendingLaunch: null, // PackageInfo we're about to launch (modal selection)
           // packageName → displayId for every cluster launch this
@@ -757,6 +774,13 @@
           // startActivity path.
           if (role === 'ivi') return null;
 
+          // Skip displays the active VehicleProfile flags as
+          // duplicate / shadow surfaces (host 1.6+: `d.hidden`).
+          // On L8 / L5L the cluster pair (3, 5) collapses to just
+          // the addressable id this way — older heuristics had to
+          // hand-roll a regex for the same effect.
+          var pool = visibleDisplays();
+
           // Cluster: lock to the OVERLAY XDJA slot
           // (``shared_fission_bg_XDJAScreenProjection_1``) — verified
           // on the test car as the one physically projected to the
@@ -765,20 +789,41 @@
           //   * 0.5.6        → ``_0`` primary — amap-contested,
           //                    invisible.
           //   * 0.5.8 (this) → ``_1`` overlay — VISIBLE.
-          // If a future device exposes a different topology we'll
-          // add a host-side display role rather than re-introducing
-          // a priority list mini-app-side.
+          // The XDJA-name regex stays in place as a fallback for
+          // hosts that don't ship `hidden` yet; once `hidden` is
+          // populated the regex narrows the pool to one entry on
+          // its own and the .find returns it directly.
           if (role === 'cluster') {
-            var d = state.displays.find(function (x) {
+            var d = pool.find(function (x) {
               return roleOf(x) === 'cluster' && /_1$/.test(x.name || '');
             });
             return d ? d.id : null;
           }
 
-          var match = state.displays.find(function (x) {
+          var match = pool.find(function (x) {
             return roleOf(x) === role;
           });
           return match ? match.id : null;
+        }
+        // Filter out shadow / duplicate displays the active
+        // VehicleProfile says shouldn't appear in pickers. Older
+        // hosts (no `hidden` field) get an unfiltered list — every
+        // display falls through, no behaviour change.
+        function visibleDisplays() {
+          return state.displays.filter(function (d) {
+            return !d.hidden;
+          });
+        }
+        // True when the active VehicleProfile says the cluster is
+        // physically reachable on this trim. False on Leopard 5 /
+        // 5 Ultra / 7 / HAN L per empirical data the host bakes in.
+        // Pre-1.6 hosts default `clusterAvailable` to true, so this
+        // never down-grades older builds.
+        function clusterAvailable() {
+          if (state.displays.length === 0) return true;
+          return state.displays.some(function (d) {
+            return roleOf(d) === 'cluster' && d.clusterAvailable !== false;
+          });
         }
         function roleOf(d) {
           if (d && d.role) return d.role;
@@ -792,6 +837,28 @@
         async function loadDisplays() {
           var r = await call('display.list');
           state.displays = (r && r.displays) || [];
+          // host 1.6+ ships {variantId, friendlyName, dilinkFamily}
+          // alongside the displays. Older hosts return undefined —
+          // we hide the trim pill in that case.
+          state.vehicle = (r && r.vehicle) || null;
+          renderTrimPill();
+        }
+        function renderTrimPill() {
+          var pill = $('#trimPill');
+          if (!pill) return;
+          var v = state.vehicle;
+          var label = v && (v.friendlyName || v.variantId || v.dilinkFamily);
+          if (!label) {
+            pill.hidden = true;
+            return;
+          }
+          // Append the variantId in parens when we have it AND it
+          // differs from the friendlyName (so `Leopard 8 (l8)` shows
+          // both, but `Generic BYD DiLink` doesn't repeat itself).
+          var detail =
+            v.variantId && v.friendlyName !== v.variantId ? ' (' + v.variantId + ')' : '';
+          pill.textContent = label + detail;
+          pill.hidden = false;
         }
 
         // ── Apps ─────────────────────────────────────────────
@@ -905,23 +972,44 @@
           applyAdvanced();
           // Disable cards whose role isn't actually present on this
           // car (e.g. no passenger panel installed). IVI is always on.
+          // For cluster cards: even if the OS exposes a cluster
+          // Display, the active VehicleProfile may say it's not
+          // physically reachable on this trim (Leopard 5 / 5 Ultra
+          // / 7 / HAN L). Gate on clusterAvailable() so we don't let
+          // the user tap a card that always fails.
+          //
           // For cluster cards with an explicit displayId, check that
-          // exact display exists rather than role-aggregating.
+          // exact display exists AND that clusterAvailable holds.
           var grid = $('#targetGrid');
+          var clusterOk = clusterAvailable();
           grid.querySelectorAll('.target-card').forEach(function (card) {
             var role = card.dataset.role;
             var explicitId = card.dataset.displayId ? parseInt(card.dataset.displayId, 10) : null;
             var available;
             if (role === 'ivi') {
               available = true;
+            } else if (role === 'cluster' && !clusterOk) {
+              available = false;
             } else if (explicitId != null) {
-              available = state.displays.some(function (d) {
+              available = visibleDisplays().some(function (d) {
                 return d.id === explicitId;
               });
             } else {
               available = pickByRole(role) != null;
             }
             card.classList.toggle('disabled', !available);
+            // Tooltip explains *why* the cluster card is greyed out
+            // on trims without a reachable cluster — saves users
+            // (and triagers) one round of "is the launcher broken?"
+            if (role === 'cluster' && !clusterOk) {
+              card.title =
+                'Cluster not supported on this trim' +
+                (state.vehicle && state.vehicle.friendlyName
+                  ? ' (' + state.vehicle.friendlyName + ')'
+                  : '');
+            } else {
+              card.removeAttribute('title');
+            }
           });
           $('#targetModal').classList.add('show');
         }
@@ -974,10 +1062,25 @@
           try {
             var r = await call(op, args);
             if (!r.ok) {
+              // path === 'am-start-bounced' means the host saw the
+              // launch land on the wrong display and couldn't move
+              // it back. Surface the friendly explanation, not the
+              // raw token.
+              if (r.path === 'am-start-bounced') {
+                toast(pkg.label + idLabel + ': fell back to IVI — try again or open here', 'err');
+                return;
+              }
               toast(pkg.label + idLabel + ': ' + (r.error || r.path || 'denied'), 'err');
               return;
             }
-            toast(pkg.label + idLabel + ' → ' + (r.path || 'launched'));
+            // path === 'am-start-rePinned' means the launch
+            // initially bounced (Waze / Maps / Spotify / YouTube)
+            // and the host auto-recovered via move-task. Annotate
+            // so users know the recovery happened — they were
+            // about to lose trust if a launch silently moved.
+            var pathLabel =
+              r.path === 'am-start-rePinned' ? 'launched (recovered)' : r.path || 'launched';
+            toast(pkg.label + idLabel + ' → ' + pathLabel);
             // Record every package we land on a cluster slot so Clear
             // can take down the whole stack, not just the last one,
             // AND so the touchpad targets the right displayId (not
@@ -1078,14 +1181,22 @@
           var d = state.displays.find(function (x) {
             return x.id === state.padDisplayId;
           });
+          // Prefer the host-supplied overrideLabel ("Driver" on L8 /
+          // L5L per VehicleProfile) so we render the same label as
+          // the rest of the system. Fall back to the legacy XDJA-
+          // suffix slot tag for trims without a profile or hosts
+          // pre-1.6.
+          var override = d && d.overrideLabel;
           var name = d ? d.name || '' : '';
-          var slot = /_1$/.test(name)
-            ? 'overlay'
-            : /_0$/.test(name)
-              ? 'primary'
-              : /^fission_bg_/i.test(name)
-                ? 'base'
-                : '';
+          var slot =
+            override ||
+            (/_1$/.test(name)
+              ? 'overlay'
+              : /_0$/.test(name)
+                ? 'primary'
+                : /^fission_bg_/i.test(name)
+                  ? 'base'
+                  : '');
           padSub.textContent = 'displayId=' + state.padDisplayId + (slot ? ' · ' + slot : '');
         }
         $('#touchpadBtn').addEventListener('click', async function () {
