@@ -51,7 +51,7 @@
       .app {
         height: 100%;
         display: grid;
-        grid-template-rows: auto auto auto 1fr auto;
+        grid-template-rows: auto auto 1fr auto;
       }
 
       /* Header */
@@ -85,11 +85,334 @@
         color: var(--accent);
         font-weight: 600;
       }
-      .dim-toggle {
+
+      /* Search */
+      .search {
+        padding: 4px 20px 12px;
+      }
+      .search input {
+        width: 100%;
+        padding: 10px 14px;
+        background: var(--bg-1);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--text-0);
+        font-size: 14px;
+        outline: none;
+      }
+      .search input::placeholder {
+        color: var(--text-2);
+      }
+      .search input:focus {
+        border-color: var(--accent);
+      }
+
+      /* Card grid — each tile IS the launch target; tapping
+       * anywhere on the card opens the screen-picker modal. No
+       * separate ▶ button: the card has one job. */
+      .grid {
+        overflow-y: auto;
+        padding: 0 20px 20px;
+        display: grid;
+        /* auto-fill so the layout adapts to whatever width the
+         * embedding host gives us — passenger panel (1920×720),
+         * IVI portrait, IVI landscape. Cards stay readable down
+         * to ~140px. */
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 12px;
+      }
+      .card {
+        background: var(--bg-1);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition:
+          transform 0.08s,
+          border-color 0.12s,
+          background 0.12s;
+        min-width: 0;
+      }
+      .card:hover {
+        border-color: var(--border-strong);
+        background: var(--bg-2);
+      }
+      .card:active {
+        transform: scale(0.97);
+      }
+      .card .icon {
+        width: 56px;
+        height: 56px;
+        background: var(--bg-2);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--accent);
+        font-size: 22px;
+        font-weight: 600;
+      }
+      .card .name {
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.25;
+        max-width: 100%;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        word-break: break-word;
+      }
+      .card .pkg {
+        font-size: 10px;
+        color: var(--text-2);
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .empty {
+        grid-column: 1 / -1;
+        padding: 40px 20px;
+        text-align: center;
+        color: var(--text-2);
+        font-size: 13px;
+      }
+
+      /* Action bar */
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 12px 20px 16px;
+        border-top: 1px solid var(--border);
+        background: var(--bg-1);
+      }
+      .actions button {
+        padding: 12px 16px;
+        background: var(--bg-2);
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        color: var(--text-0);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .actions button:active {
+        transform: scale(0.98);
+      }
+      .actions button.primary {
+        background: rgba(88, 199, 255, 0.12);
+        border-color: rgba(88, 199, 255, 0.4);
+        color: var(--accent);
+      }
+
+      /* Toast */
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 90px;
+        transform: translate(-50%, 20px);
+        padding: 10px 16px;
+        background: var(--bg-2);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        color: var(--text-0);
+        font-size: 13px;
+        opacity: 0;
+        transition: all 0.18s;
+        pointer-events: none;
+        z-index: 50;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+      .toast.err {
+        background: rgba(240, 185, 185, 0.12);
+        border-color: rgba(240, 185, 185, 0.35);
+        color: var(--err);
+      }
+
+      /* Modal — shared shell */
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        z-index: 100;
+      }
+      .modal.show {
+        display: flex;
+      }
+      .modal-card {
+        width: 100%;
+        max-width: 720px;
+        max-height: 90vh;
+        background: var(--bg-1);
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .modal-header {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .modal-header h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .modal-header .sub {
+        color: var(--text-1);
+        font-size: 12px;
+      }
+      .modal-header .close {
+        margin-left: auto;
+        background: transparent;
+        border: none;
+        color: var(--text-1);
+        font-size: 20px;
+        cursor: pointer;
+        padding: 4px 10px;
+      }
+      .modal-body {
+        padding: 18px;
+        overflow: auto;
+      }
+
+      /* Target picker grid */
+      .targets {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+      }
+      .target-card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        text-align: center;
+        transition: all 0.12s;
+      }
+      .target-card:hover {
+        border-color: var(--border-strong);
+      }
+      .target-card:active {
+        transform: scale(0.97);
+      }
+      .target-card.disabled {
+        opacity: 0.4;
+        pointer-events: none;
+      }
+      .target-card svg {
+        width: 100%;
+        height: 80px;
+      }
+      .target-card .caption {
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .target-card .sub {
+        font-size: 10px;
+        color: var(--text-2);
+      }
+
+      /* Touchpad */
+      .pad-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      .pad-info {
+        font-size: 12px;
+        color: var(--text-1);
+        text-align: center;
+      }
+      .pad {
+        /* Cluster aspect ratio: 1920:720 = 8:3 (~2.67:1). Width is
+         * driven by the modal card; height follows aspect-ratio so
+         * the pad surface always matches the actual display we're
+         * remoting to. */
+        width: 100%;
+        aspect-ratio: 1920 / 720;
+        background: linear-gradient(135deg, var(--bg-2), var(--bg-0));
+        border: 1px dashed var(--border-strong);
+        border-radius: 10px;
+        position: relative;
+        touch-action: none;
+        cursor: crosshair;
+      }
+      .pad::before {
+        content: 'tap to click · drag to move cursor on driver screen';
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-2);
+        font-size: 12px;
+        pointer-events: none;
+      }
+      .pad.touched::before {
+        opacity: 0;
+      }
+      /* IVI-side touch indicator. The host-drawn cursor lives on the
+       * cluster (the user's actual target); this dot is just so the
+       * user has feedback under their finger on the pad without
+       * having to glance at the cluster. CSS-only — never crosses
+       * the bridge so it can never desync from the actual touch. */
+      .pad-dot {
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        margin-left: -9px;
+        margin-top: -9px;
+        border-radius: 50%;
+        background: rgba(88, 199, 255, 0.5);
+        border: 2px solid var(--accent);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.12s;
+      }
+      .pad-dot.show {
+        opacity: 1;
+      }
+      /* Slot picker — lets the user re-target the touchpad onto a
+       * different cluster slot (overlay / primary / base) without
+       * re-launching. Sits in the touchpad modal header so it's one
+       * tap away when the auto-pick lands on the wrong slot. */
+      .slot-row {
+        display: flex;
         gap: 6px;
-        padding: 6px 10px;
+        margin-left: auto;
+        margin-right: 8px;
+      }
+      .slot-pill {
+        padding: 4px 10px;
         font-size: 11px;
         background: var(--bg-2);
         color: var(--text-1);
@@ -97,256 +420,182 @@
         border-radius: 999px;
         cursor: pointer;
       }
-      .dim-toggle.on {
-        background: rgba(244, 162, 97, 0.18);
-        border-color: var(--warn);
-        color: var(--warn);
-      }
-      .dim-toggle .dim-icon {
-        font-size: 13px;
-      }
-
-      /* Display chip rail */
-      .targets {
-        padding: 0 20px 12px;
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .chip {
-        padding: 9px 14px;
-        border-radius: 11px;
-        background: var(--bg-2);
-        border: 1px solid var(--border);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 13px;
-        color: var(--text-1);
-        transition:
-          background 0.15s,
-          border 0.15s,
-          color 0.15s;
-      }
-      .chip.on {
-        background: rgba(88, 199, 255, 0.14);
-        border-color: var(--accent);
-        color: var(--text-0);
-      }
-      .chip .dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--text-2);
-      }
-      .chip.on .dot {
-        background: var(--accent);
-        box-shadow: 0 0 6px var(--accent);
-      }
-
-      /* Search */
-      .search-row {
-        padding: 0 20px 8px;
-      }
-      .search {
-        width: 100%;
-        padding: 11px 14px;
-        background: var(--bg-2);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        color: var(--text-0);
-        font-size: 14px;
-        outline: none;
-      }
-      .search:focus {
-        border-color: var(--accent);
-      }
-
-      /* App list */
-      .list {
-        overflow-y: auto;
-        padding: 0 20px 14px;
-      }
-      .row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 16px;
-        margin-bottom: 6px;
-        background: var(--bg-2);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 12px;
-      }
-      .row .swatch {
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        opacity: 0.55;
-        flex-shrink: 0;
-      }
-      .row .meta {
-        flex: 1;
-        min-width: 0;
-      }
-      .row .label {
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--text-0);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .row .pkg {
-        font-size: 11px;
-        color: var(--text-2);
-        font-family: ui-monospace, SFMono-Regular, monospace;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .row .actions {
-        display: flex;
-        gap: 6px;
-        flex-shrink: 0;
-      }
-      .row button {
-        width: 38px;
-        height: 38px;
-        border-radius: 50%;
-        border: 1px solid var(--border-strong);
-        background: var(--bg-2);
-        color: var(--text-1);
-        font-size: 13px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition:
-          transform 0.12s,
-          background 0.12s,
-          border 0.12s,
-          color 0.12s;
-      }
-      .row button:active {
-        transform: scale(0.92);
-      }
-      .row button.run {
+      .slot-pill.on {
         background: rgba(88, 199, 255, 0.18);
-        border-color: rgba(88, 199, 255, 0.45);
         color: var(--accent);
-      }
-      .row button.move {
-        background: rgba(200, 168, 255, 0.14);
-        border-color: rgba(200, 168, 255, 0.4);
-        color: var(--accent-2);
-      }
-      .row button.boot.on {
-        background: rgba(244, 162, 97, 0.2);
-        border-color: var(--warn);
-        color: var(--warn);
-      }
-      .empty {
-        padding: 36px 20px;
-        text-align: center;
-        color: var(--text-1);
-        font-size: 13px;
-      }
-
-      /* Footer */
-      .footer {
-        padding: 12px 20px;
-        border-top: 1px solid var(--border);
-        background: rgba(10, 14, 22, 0.6);
-        font-size: 12px;
-        color: var(--text-1);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-height: 56px;
-      }
-      .footer .spacer {
-        flex: 1;
-      }
-      .footer .boot-summary {
-        color: var(--warn);
-      }
-      .footer .boot-summary .name {
-        color: var(--text-0);
-      }
-      .footer .hint {
-        font-size: 11px;
-        color: var(--text-2);
-      }
-
-      .toast {
-        position: fixed;
-        bottom: 80px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: var(--bg-2);
-        border: 1px solid var(--border-strong);
-        padding: 10px 18px;
-        border-radius: 12px;
-        font-size: 13px;
-        opacity: 0;
-        transition: opacity 0.2s;
-        pointer-events: none;
-        max-width: 80%;
-        text-align: center;
-      }
-      .toast.show {
-        opacity: 1;
-      }
-      .toast.err {
-        border-color: var(--err);
-        color: var(--err);
+        border-color: rgba(88, 199, 255, 0.5);
       }
     </style>
   </head>
+
   <body>
     <div class="app">
       <header class="header">
         <h1>Pkg Launcher</h1>
-        <span class="pill">v0.3.0</span>
-        <span class="spacer"></span>
-        <button class="dim-toggle" id="dimToggle" title="Dim driver display when launching apps">
-          <span class="dim-icon">◐</span>
-          <span class="dim-label">Safety dim: <span id="dimState">off</span></span>
-        </button>
-        <span class="status"><span class="count" id="count">0</span> apps</span>
+        <span class="pill">v0.5.5</span>
+        <div class="spacer"></div>
+        <span class="status"> <span class="count" id="count">0</span> apps </span>
       </header>
 
-      <div class="targets" id="targets"></div>
-
-      <div class="search-row">
-        <input class="search" id="search" type="text" placeholder="Filter installed apps…" />
+      <div class="search">
+        <input id="search" type="text" placeholder="Search installed apps…" />
       </div>
 
-      <div class="list" id="list">
-        <div class="empty">Loading installed apps…</div>
+      <div class="grid" id="list">
+        <div class="empty">Loading…</div>
       </div>
 
-      <footer class="footer">
-        <span class="boot-summary" id="bootSummary">★ No auto-launch set</span>
-        <span class="spacer"></span>
-        <span class="hint">tap ▶ launch · tap ★ toggle boot</span>
-      </footer>
+      <div class="actions">
+        <button id="clearBtn" type="button"><span>↺</span><span>Clear driver screen</span></button>
+        <button id="touchpadBtn" type="button" class="primary">
+          <span>◐</span><span>Open touchpad</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Target-picker modal: opens on row ▶, lets user pick which
+         display the launch should land on. Three SVG cards keep the
+         choice physical — head unit / passenger / driver — instead
+         of asking the user to remember a numeric displayId. -->
+    <div class="modal" id="targetModal" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 id="targetTitle">Choose a screen</h2>
+          <span class="sub" id="targetSub"></span>
+          <button class="close" data-close="target">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="targets" id="targetGrid">
+            <div class="target-card" data-role="ivi">
+              <!-- Head unit: wide center-stack screen with a notch
+                   for the camera band. -->
+              <svg viewBox="0 0 160 80" aria-hidden="true">
+                <rect
+                  x="6"
+                  y="10"
+                  width="148"
+                  height="60"
+                  rx="6"
+                  fill="#0a0e16"
+                  stroke="#58c7ff"
+                  stroke-width="1.5"
+                />
+                <rect x="64" y="6" width="32" height="6" rx="3" fill="#11192a" />
+                <rect x="14" y="20" width="40" height="40" rx="3" fill="#11192a" />
+                <rect x="60" y="20" width="86" height="6" rx="2" fill="#11192a" />
+                <rect x="60" y="32" width="86" height="6" rx="2" fill="#11192a" />
+                <rect x="60" y="44" width="60" height="6" rx="2" fill="#11192a" />
+              </svg>
+              <span class="caption">Head Unit</span>
+              <span class="sub">IVI · main screen</span>
+            </div>
+
+            <div class="target-card" data-role="passenger">
+              <!-- Passenger: skinny landscape panel beside a small
+                   armrest indicator. -->
+              <svg viewBox="0 0 160 80" aria-hidden="true">
+                <rect
+                  x="14"
+                  y="22"
+                  width="130"
+                  height="44"
+                  rx="5"
+                  fill="#0a0e16"
+                  stroke="#c8a8ff"
+                  stroke-width="1.5"
+                />
+                <rect x="22" y="30" width="50" height="28" rx="3" fill="#11192a" />
+                <rect x="80" y="30" width="56" height="6" rx="2" fill="#11192a" />
+                <rect x="80" y="40" width="48" height="6" rx="2" fill="#11192a" />
+                <rect x="80" y="50" width="40" height="6" rx="2" fill="#11192a" />
+              </svg>
+              <span class="caption">Passenger</span>
+              <span class="sub">Front-seat panel</span>
+            </div>
+
+            <div class="target-card" data-role="cluster">
+              <!-- Driver: instrument cluster, narrow strip behind the
+                   wheel. Steering wheel arc hints at position. -->
+              <svg viewBox="0 0 160 80" aria-hidden="true">
+                <rect
+                  x="20"
+                  y="28"
+                  width="120"
+                  height="32"
+                  rx="4"
+                  fill="#0a0e16"
+                  stroke="#f4a261"
+                  stroke-width="1.5"
+                />
+                <circle cx="50" cy="44" r="9" fill="none" stroke="#11192a" stroke-width="2" />
+                <text
+                  x="50"
+                  y="48"
+                  text-anchor="middle"
+                  fill="#11192a"
+                  font-size="9"
+                  font-weight="700"
+                >
+                  90
+                </text>
+                <rect x="70" y="38" width="60" height="4" rx="2" fill="#11192a" />
+                <rect x="70" y="46" width="44" height="4" rx="2" fill="#11192a" />
+                <path d="M 30 70 Q 80 78 130 70" fill="none" stroke="#6c7a93" stroke-width="1.5" />
+              </svg>
+              <span class="caption">Driver</span>
+              <span class="sub">Cluster · behind wheel</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Touchpad modal: cluster-remote-style trackpad. Drag to move
+         the cursor overlay on the cluster, release to tap. The pad
+         surface is aspect-locked to the cluster (1920:720) so the
+         user has a 1:1 mental map of where they are. -->
+    <div class="modal" id="touchpadModal" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Driver-screen touchpad</h2>
+          <span class="sub" id="padSub">cluster mirror</span>
+          <button class="close" data-close="touchpad">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="pad-wrap">
+            <div class="pad-info">
+              The pad below is shaped like the driver screen. Drag to move the cursor; release to
+              tap.
+            </div>
+            <div class="pad" id="pad">
+              <div class="pad-dot" id="padDot"></div>
+            </div>
+            <div class="pad-info" id="padStatus"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="toast" id="toast"></div>
 
-    <script>
-      // Phase C reference — uses the host bridge directly so the
-      // bundle stays a single static file. Production mini-apps can
-      // import from the `i99dash` SDK package for typed wrappers.
-      (function () {
-        var bridge = window.flutter_inappwebview;
-        if (!bridge) {
-          alert('No host bridge — run inside i99dash.');
-          return;
+    <script type="module">
+      (async function () {
+        var ATTEMPTS = 0;
+        // Wait for the host bridge to inject `window.flutter_inappwebview`.
+        // The host typically races the page load by 10–80ms; bound the
+        // wait so a misconfigured embed surfaces a clear error.
+        function waitForBridge() {
+          return new Promise(function (resolve, reject) {
+            (function check() {
+              if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
+                return resolve(window.flutter_inappwebview);
+              }
+              if (++ATTEMPTS > 200) return reject(new Error('bridge missing'));
+              setTimeout(check, 25);
+            })();
+          });
         }
+        var bridge = await waitForBridge();
 
         async function call(name, args) {
           var raw = await bridge.callHandler(name, {
@@ -362,12 +611,21 @@
         // ── State ────────────────────────────────────────────
         var state = {
           packages: [], // PackageInfo[]
-          displays: [], // DisplaySnapshot[]
-          activeTarget: null, // displayId — null = head unit (default)
-          bootSet: new Set(), // packageNames currently flagged as boot-launch
+          displays: [], // DisplaySnapshot[] — used to resolve role→id
           filter: '',
-          dimEnabled: false, // safety scrim on driver display
-          dimSurfaces: new Map(), // displayId -> surfaceId of mounted scrim
+          pendingLaunch: null, // PackageInfo we're about to launch (modal selection)
+          // packageName → displayId for every cluster launch this
+          // session, in insertion order. Two consumers depend on
+          // this map being accurate:
+          //   * Clear iterates the keys and pkg.stop each.
+          //   * Touchpad targets the LAST inserted displayId so the
+          //     pad's gestures land on the slot where the user just
+          //     put an app — not just whichever slot pickByRole's
+          //     priority list happens to return first. The two can
+          //     differ on Leopard 8 (overlay vs primary), and the
+          //     user noticed: "touch pad uses wrong id for screen".
+          clusterLaunches: new Map(),
+          padAttached: false, // cursor.attach state for the touchpad
         };
 
         // ── DOM helpers ──────────────────────────────────────
@@ -384,307 +642,615 @@
             el.classList.remove('show');
           }, 2200);
         }
-
-        // ── Display chip rail ─────────────────────────────────
-        function displayLabel(d) {
-          if (d.isDefault) return 'Head Unit';
-          if (d.name && d.name.toLowerCase() === 'fse') return 'Passenger';
-          // BYD's XDJA fission exposes three cluster-side virtual
-          // displays — fission_bg (id=3) and the two
-          // shared_fission_bg slots (id=4 contested by amap, id=5
-          // is the friendly overlay). Disambiguate them so the
-          // chip rail isn't three rows of "Cluster".
-          if (/XDJAScreenProjection_1$/i.test(d.name)) return 'Cluster · overlay';
-          if (/XDJAScreenProjection_0$/i.test(d.name)) return 'Cluster · primary';
-          if (/^fission_bg_/i.test(d.name)) return 'Cluster · bg';
-          if (d.isCluster) return 'Cluster · ' + d.id;
-          return d.name || 'Display ' + d.id;
-        }
-        async function loadDisplays() {
-          var r = await call('display.list');
-          var all = (r && r.displays) || [];
-          // Order: IVI first (selected by default), then passenger, then cluster slots.
-          state.displays = all.slice().sort(function (a, b) {
-            var rank = function (d) {
-              if (d.isDefault) return 0;
-              if (d.name && d.name.toLowerCase() === 'fse') return 1;
-              if (/XDJAScreenProjection_1$/i.test(d.name)) return 2;
-              if (d.isCluster) return 3;
-              return 4;
-            };
-            return rank(a) - rank(b);
-          });
-          renderTargets();
-        }
-
-        function renderTargets() {
-          var host = $('#targets');
-          host.innerHTML = '';
-          state.displays.forEach(function (d) {
-            var chip = document.createElement('div');
-            var isActive =
-              (state.activeTarget == null && d.isDefault) || state.activeTarget === d.id;
-            chip.className = 'chip' + (isActive ? ' on' : '');
-            chip.innerHTML = '<span class="dot"></span><span>' + displayLabel(d) + '</span>';
-            chip.addEventListener('click', function () {
-              state.activeTarget = d.isDefault ? null : d.id;
-              renderTargets();
-            });
-            host.appendChild(chip);
-          });
-        }
-
-        // ── Boot list — load existing declarations on boot ────
-        async function loadBoot() {
-          var r = await call('boot.list');
-          var entries = (r && r.entries) || [];
-          state.bootSet = new Set(
-            entries.map(function (e) {
-              return e.packageName;
-            }),
-          );
-          renderBootSummary();
-        }
-
-        function renderBootSummary() {
-          var el = $('#bootSummary');
-          if (state.bootSet.size === 0) {
-            el.innerHTML = '★ No auto-launch set';
-            return;
-          }
-          var names = [];
-          state.packages.forEach(function (p) {
-            if (state.bootSet.has(p.packageName)) names.push(p.label);
-          });
-          // Fallback to package names if labels haven't loaded yet.
-          if (names.length === 0)
-            names = Array.from(state.bootSet).map(function (n) {
-              return n;
-            });
-          el.innerHTML =
-            '★ <span style="color:var(--text-1)">Auto-launch on boot:</span> ' +
-            '<span class="name">' +
-            names.join(', ') +
-            '</span>';
-        }
-
-        // ── Package list ──────────────────────────────────────
-        async function loadPackages() {
-          var r = await call('pkg.list', { includeSystem: false });
-          state.packages = (r && r.packages) || [];
-          $('#count').textContent = state.packages.length;
-          renderPackages();
-          renderBootSummary();
-        }
-
-        function renderPackages() {
-          var host = $('#list');
-          var filter = state.filter.toLowerCase().trim();
-          var rows = state.packages.filter(function (p) {
-            if (!filter) return true;
-            return (
-              p.label.toLowerCase().indexOf(filter) !== -1 ||
-              p.packageName.toLowerCase().indexOf(filter) !== -1
-            );
-          });
-          host.innerHTML = '';
-          if (rows.length === 0) {
-            var empty = document.createElement('div');
-            empty.className = 'empty';
-            empty.textContent = filter
-              ? 'No matches for "' + filter + '"'
-              : 'No installed apps reported by the host.';
-            host.appendChild(empty);
-            return;
-          }
-          rows.forEach(function (p) {
-            var row = document.createElement('div');
-            row.className = 'row';
-            var bootOn = state.bootSet.has(p.packageName);
-            row.innerHTML =
-              '<div class="swatch"></div>' +
-              '<div class="meta">' +
-              '<div class="label">' +
-              escapeHtml(p.label) +
-              '</div>' +
-              '<div class="pkg">' +
-              escapeHtml(p.packageName) +
-              '</div>' +
-              '</div>' +
-              '<div class="actions">' +
-              '<button class="run" data-act="run" title="Launch on selected display">▶</button>' +
-              '<button class="move" data-act="move" title="Move running app to selected display">⇄</button>' +
-              '<button class="boot' +
-              (bootOn ? ' on' : '') +
-              '" data-act="boot" title="Toggle boot-launch">★</button>' +
-              '</div>';
-            row.querySelector('[data-act="run"]').addEventListener('click', function () {
-              doLaunch(p);
-            });
-            row.querySelector('[data-act="move"]').addEventListener('click', function () {
-              doMove(p);
-            });
-            row.querySelector('[data-act="boot"]').addEventListener('click', function () {
-              doToggleBoot(p);
-            });
-            host.appendChild(row);
-          });
-        }
-
         function escapeHtml(s) {
           return String(s).replace(/[&<>"']/g, function (c) {
             return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
           });
         }
 
-        // ── Actions ───────────────────────────────────────────
-        async function doLaunch(p) {
-          var args = { packageName: p.packageName };
-          if (state.activeTarget != null) args.displayId = state.activeTarget;
+        // ── Display discovery ────────────────────────────────
+        // We don't render display chips anymore (the target picker
+        // does the selection). But we still need to resolve role
+        // → displayId to know which id to pass to the host on
+        // launch / cursor.attach / gesture.tap.
+        function pickByRole(role) {
+          // Default display is always role=ivi; pkg.launch with no
+          // displayId implicitly hits it. Returning null tells the
+          // launcher "use the default" so the host takes the cheap
+          // startActivity path.
+          if (role === 'ivi') return null;
+
+          // Cluster: only the BASE XDJA slot
+          // (``fission_bg_XDJAScreenProjection`` with no ``_N`` suffix)
+          // is the one physically projected to the screen behind the
+          // wheel on Leopard 8. The shared `_0` (amap-contested
+          // primary) and `_1` (overlay) slots exist in `display.list`
+          // but aren't visible to the driver — earlier versions of
+          // this code prioritised them and the launches landed on
+          // invisible surfaces. Lock to base only; if a future device
+          // exposes a different cluster topology we'll add a
+          // host-side display role rather than re-introducing a
+          // priority list mini-app-side.
+          if (role === 'cluster') {
+            var d = state.displays.find(function (x) {
+              return (
+                roleOf(x) === 'cluster' &&
+                /^fission_bg_/i.test(x.name || '') &&
+                !/_\d+$/.test(x.name || '')
+              );
+            });
+            return d ? d.id : null;
+          }
+
+          var match = state.displays.find(function (x) {
+            return roleOf(x) === role;
+          });
+          return match ? match.id : null;
+        }
+        function roleOf(d) {
+          if (d && d.role) return d.role;
+          // Pre-1.4 host fallback: derive from legacy flags so the
+          // mini-app still works while the device updates.
+          if (d && d.isDefault) return 'ivi';
+          if (d && d.isCluster) return 'cluster';
+          return 'passenger';
+        }
+
+        async function loadDisplays() {
+          var r = await call('display.list');
+          state.displays = (r && r.displays) || [];
+        }
+
+        // ── Apps ─────────────────────────────────────────────
+        async function loadPackages() {
           try {
-            var r = await call('pkg.launch', args);
-            if (r.ok) {
-              toast(p.label + ' → ' + (r.path || 'launched'));
-              await ensureDimForActiveTarget();
-            } else {
-              toast(p.label + ': ' + (r.error || r.path || 'denied'), 'err');
+            var r = await call('pkg.list', { includeSystem: false });
+            state.packages = (r && r.packages) || [];
+            renderPackages();
+          } catch (e) {
+            $('#list').innerHTML =
+              '<div class="empty">pkg.list failed: ' + escapeHtml(e && e.message) + '</div>';
+          }
+        }
+
+        function filteredPackages() {
+          var q = state.filter.trim().toLowerCase();
+          if (!q) return state.packages;
+          return state.packages.filter(function (p) {
+            return (
+              (p.label || '').toLowerCase().includes(q) ||
+              (p.packageName || '').toLowerCase().includes(q)
+            );
+          });
+        }
+
+        function renderPackages() {
+          var host = $('#list');
+          var matches = filteredPackages();
+          $('#count').textContent = matches.length;
+          if (matches.length === 0) {
+            host.innerHTML = '<div class="empty">No apps match.</div>';
+            return;
+          }
+          host.innerHTML = '';
+          matches.forEach(function (p) {
+            var initial =
+              (p.label || p.packageName || '?')
+                .replace(/[^a-zA-Z0-9]/g, '')
+                .slice(0, 1)
+                .toUpperCase() || '?';
+            var card = document.createElement('div');
+            card.className = 'card';
+            // Whole card is the touch target; aria-label so screen
+            // readers announce the launch action without needing a
+            // visible "▶" button.
+            card.setAttribute('role', 'button');
+            card.setAttribute('aria-label', 'Launch ' + (p.label || p.packageName));
+            card.tabIndex = 0;
+            card.innerHTML =
+              '<div class="icon">' +
+              escapeHtml(initial) +
+              '</div>' +
+              '<div class="name">' +
+              escapeHtml(p.label || p.packageName) +
+              '</div>' +
+              '<div class="pkg">' +
+              escapeHtml(p.packageName) +
+              '</div>';
+            card.addEventListener('click', function () {
+              openTargetPicker(p);
+            });
+            // Keyboard parity — Enter / Space activate the card the
+            // same way a tap does. Cheap a11y win, no extra surface.
+            card.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openTargetPicker(p);
+              }
+            });
+            host.appendChild(card);
+          });
+        }
+
+        // ── Target-picker modal ──────────────────────────────
+        function openTargetPicker(pkg) {
+          state.pendingLaunch = pkg;
+          $('#targetTitle').textContent = pkg.label || pkg.packageName;
+          $('#targetSub').textContent = pkg.packageName;
+          // Disable cards whose role isn't actually present on this
+          // car (e.g. no passenger panel installed). IVI is always on.
+          var grid = $('#targetGrid');
+          grid.querySelectorAll('.target-card').forEach(function (card) {
+            var role = card.dataset.role;
+            var available = role === 'ivi' || pickByRole(role) != null;
+            card.classList.toggle('disabled', !available);
+          });
+          $('#targetModal').classList.add('show');
+        }
+        function closeTargetPicker() {
+          state.pendingLaunch = null;
+          $('#targetModal').classList.remove('show');
+        }
+
+        document.addEventListener('click', function (e) {
+          var closeBtn = e.target.closest('[data-close="target"]');
+          if (closeBtn) return closeTargetPicker();
+          var card = e.target.closest('.target-card');
+          if (card && !card.classList.contains('disabled') && state.pendingLaunch) {
+            launchOnRole(state.pendingLaunch, card.dataset.role);
+            closeTargetPicker();
+          }
+        });
+
+        // ── Launch routing ───────────────────────────────────
+        async function launchOnRole(pkg, role) {
+          var args = { packageName: pkg.packageName };
+          var op = 'pkg.launch';
+          // Cluster targets MUST go through pkg.launch_cluster — the
+          // standard pkg.launch op rejects cluster displayIds since
+          // host 1.4.0 with a `role:requires_cluster_op` error.
+          if (role === 'cluster') {
+            op = 'pkg.launch_cluster';
+            args.displayId = pickByRole('cluster');
+            if (args.displayId == null) {
+              toast('No cluster display detected', 'err');
+              return;
+            }
+          } else if (role === 'passenger') {
+            args.displayId = pickByRole('passenger');
+            if (args.displayId == null) {
+              toast('No passenger display detected', 'err');
+              return;
+            }
+          }
+          // role === 'ivi' → no displayId; host hits startActivity
+          // on the default display.
+          try {
+            var r = await call(op, args);
+            if (!r.ok) {
+              toast(pkg.label + ': ' + (r.error || r.path || 'denied'), 'err');
+              return;
+            }
+            toast(pkg.label + ' → ' + (r.path || 'launched'));
+            // Record every package we land on a cluster slot so Clear
+            // can take down the whole stack, not just the last one,
+            // AND so the touchpad targets the right displayId (not
+            // whatever pickByRole's priority list happens to pick).
+            // Map de-dupes by packageName; re-launching the same
+            // package to a different slot updates its displayId.
+            if (role === 'cluster') {
+              state.clusterLaunches.set(pkg.packageName, args.displayId);
             }
           } catch (e) {
             toast('launch failed: ' + (e && e.message), 'err');
           }
         }
 
-        // Mount the dim scrim on the currently-selected non-IVI
-        // display, idempotent — no-op if a scrim is already up there
-        // or if the IVI chip is selected. Called after every
-        // successful launch/move so the driver-side displays stay
-        // dimmed regardless of which app is on top.
-        async function ensureDimForActiveTarget() {
-          if (!state.dimEnabled) return;
-          if (state.activeTarget == null) return;
-          if (state.dimSurfaces.has(state.activeTarget)) return;
-          try {
-            var sfc = await call('surface.create', {
-              displayId: state.activeTarget,
-              route: '/dim.html?level=0.45',
-            });
-            state.dimSurfaces.set(state.activeTarget, sfc.surfaceId);
-          } catch (e) {
-            // Mini-app's dim attempt may race with the launched app
-            // claiming the same surface slot — best-effort only.
-            console.warn('dim mount failed:', e && e.message);
-          }
-        }
-
-        async function clearAllDims() {
-          var ids = Array.from(state.dimSurfaces.values());
-          state.dimSurfaces.clear();
-          for (var i = 0; i < ids.length; i++) {
-            try {
-              await call('surface.destroy', { surfaceId: ids[i] });
-            } catch (e) {
-              // Already gone — ignore.
-            }
-          }
-        }
-
-        async function doMove(p) {
-          // Move requires a real displayId; the IVI default (null
-          // target) is meaningless because that's where the app
-          // already lives in the common case. Refuse here so the
-          // user gets a clear toast instead of a server-side
-          // 'no-op' bounce.
-          if (state.activeTarget == null) {
-            toast('Pick a non-IVI chip first to move there', 'err');
+        // ── Clear cluster ────────────────────────────────────
+        // pkg.stop every package the launcher pushed onto a cluster
+        // slot in this session so XDJA's normal projection reclaims
+        // the surface. Iterates the full set — earlier versions only
+        // stopped the most-recent launch and left earlier ones
+        // visible underneath. We never blanket-stop foreign packages
+        // we didn't put there.
+        $('#clearBtn').addEventListener('click', async function () {
+          if (state.clusterLaunches.size === 0) {
+            toast('No app to clear — driver screen unchanged');
             return;
           }
+          // Snapshot the keys before iterating so deletes mid-loop
+          // don't reshape what we walk.
+          var pkgs = Array.from(state.clusterLaunches.keys());
+          var stopped = [];
+          var failed = [];
+          for (var i = 0; i < pkgs.length; i++) {
+            var pkg = pkgs[i];
+            try {
+              var r = await call('pkg.stop', { packageName: pkg });
+              if (r && r.ok) {
+                stopped.push(pkg);
+                state.clusterLaunches.delete(pkg);
+              } else {
+                // Surface the host-side error verbatim so we can see
+                // *why* a stop failed (permission denied, no such
+                // package, am rejected) instead of guessing.
+                failed.push(pkg + ' (' + ((r && (r.error || r.path)) || 'no response') + ')');
+              }
+            } catch (e) {
+              failed.push(pkg + ' (' + (e && e.message) + ')');
+            }
+          }
+          if (failed.length === 0) {
+            toast('Driver screen cleared (' + stopped.length + ')');
+          } else {
+            toast(
+              'cleared ' + stopped.length + ', failed ' + failed.length + ': ' + failed.join('; '),
+              'err',
+            );
+          }
+        });
+
+        // ── Touchpad modal ───────────────────────────────────
+        // Opens any time. Drag → cursor.move (hot path, fire-and-
+        // forget); release → gesture.tap at the cluster coord that
+        // matches the release point on the pad. Pad aspect is
+        // locked to 1920:720 (CSS aspect-ratio) so a tap on the
+        // pad's center lands at (960, 360) on the cluster.
+        //
+        // Slot resolution: prefer the displayId of the most recent
+        // cluster launch (so the pad targets exactly the slot the
+        // user just put an app on); fall back to pickByRole('cluster')
+        // when no launch has happened yet. The slot picker in the
+        // modal header lets the user override at any time — useful
+        // when XDJA's slot mapping isn't what we'd guess (overlay
+        // vs primary differs per car / per content).
+        var pad = $('#pad');
+        var padStatus = $('#padStatus');
+        var padSub = $('#padSub');
+        var dragging = false;
+
+        // The slot the touchpad currently targets. Changes when
+        // the user (a) opens the touchpad after a fresh launch, or
+        // (b) taps a slot pill in the modal header.
+        state.padDisplayId = null;
+
+        function lastLaunchedClusterId() {
+          // Map preserves insertion order; the most recent launch
+          // is the last value.
+          if (state.clusterLaunches.size === 0) return null;
+          var values = Array.from(state.clusterLaunches.values());
+          return values[values.length - 1];
+        }
+        function defaultPadId() {
+          return lastLaunchedClusterId() ?? pickByRole('cluster');
+        }
+        function refreshPadSub() {
+          if (state.padDisplayId == null) {
+            padSub.textContent = 'no cluster';
+            return;
+          }
+          var d = state.displays.find(function (x) {
+            return x.id === state.padDisplayId;
+          });
+          var name = d ? d.name || '' : '';
+          var slot = /_1$/.test(name)
+            ? 'overlay'
+            : /_0$/.test(name)
+              ? 'primary'
+              : /^fission_bg_/i.test(name)
+                ? 'base'
+                : '';
+          padSub.textContent = 'displayId=' + state.padDisplayId + (slot ? ' · ' + slot : '');
+        }
+        $('#touchpadBtn').addEventListener('click', async function () {
+          // Hard-locked to the base XDJA cluster slot via
+          // pickByRole('cluster') — earlier "slot picker" UI is
+          // gone now that we know the base is the only one
+          // visible to the driver on this car.
+          state.padDisplayId = defaultPadId();
+          if (state.padDisplayId == null) {
+            toast('No cluster display detected', 'err');
+            return;
+          }
+          state.padAttached = false;
+          refreshPadSub();
+          padStatus.textContent = 'Idle';
+          $('#touchpadModal').classList.add('show');
+          // Lazy-attach the cursor on first touch — saves a round-
+          // trip if the user opens the modal and closes it without
+          // touching.
+        });
+        document.addEventListener('click', function (e) {
+          if (e.target.closest('[data-close="touchpad"]')) {
+            $('#touchpadModal').classList.remove('show');
+            // Don't detach the cursor — the user might re-open
+            // shortly. Cursor stays attached for the session and
+            // the host garbage-collects it on session end.
+          }
+        });
+
+        // Map a pad pointer event to a (0..1, 0..1) fraction of the
+        // pad rect, then to a cluster coord. Aspect-ratio handling
+        // is intrinsic: CSS forces the pad's width:height to be
+        // 1920:720, so the fraction → cluster scaling is uniform on
+        // both axes. No separate Y correction needed.
+        function padToCluster(e) {
+          var rect = pad.getBoundingClientRect();
+          var fx = (e.clientX - rect.left) / Math.max(1, rect.width);
+          var fy = (e.clientY - rect.top) / Math.max(1, rect.height);
+          fx = Math.min(Math.max(fx, 0), 1);
+          fy = Math.min(Math.max(fy, 0), 1);
+          return {
+            x: Math.round(fx * 1920),
+            y: Math.round(fy * 720),
+          };
+        }
+        function padDotPosition(e) {
+          // Pad-relative pixel coords for the local CSS dot. Same
+          // rect math as padToCluster but in screen pixels so the
+          // dot sits exactly under the finger. Lives entirely in
+          // the DOM — no host roundtrip, no chance of drifting from
+          // the actual touch position.
+          var rect = pad.getBoundingClientRect();
+          return {
+            left: e.clientX - rect.left,
+            top: e.clientY - rect.top,
+          };
+        }
+
+        async function ensurePadAttached() {
+          if (state.padAttached) return;
+          var clusterId = state.padDisplayId;
+          if (clusterId == null) return;
           try {
-            var r = await call('pkg.move', {
-              packageName: p.packageName,
-              displayId: state.activeTarget,
+            var r = await call('cursor.attach', {
+              targetDisplayId: clusterId,
+              style: 'dot',
             });
-            if (r.ok) {
-              toast(p.label + ' → moved (' + (r.path || 'move-task') + ')');
-              await ensureDimForActiveTarget();
-            } else {
-              toast(p.label + ': ' + (r.error || r.path || 'denied'), 'err');
-            }
+            state.padAttached = !!(r && r.ok);
           } catch (e) {
-            toast('move failed: ' + (e && e.message), 'err');
+            // Best-effort — the tap on release still works without
+            // the cursor overlay; the user just doesn't see drag
+            // feedback on the cluster.
           }
         }
 
-        async function doToggleBoot(p) {
-          var on = state.bootSet.has(p.packageName);
+        var padDot = $('#padDot');
+        function moveDot(e) {
+          var p = padDotPosition(e);
+          padDot.style.left = p.left + 'px';
+          padDot.style.top = p.top + 'px';
+        }
+
+        // Touchpad gesture-detection state machine.
+        //
+        // We don't know what the user meant until they let go (or
+        // hold long enough). Three terminal gestures fire on the
+        // cluster, all gated on what happens between pointerdown
+        // and pointerup:
+        //
+        //   * Long-press  — pointer down for >= LONG_PRESS_MS with
+        //                   total motion <= LONG_PRESS_TOL_PX.
+        //                   Fires from a setTimeout — no pointerup
+        //                   needed; release-tap is suppressed.
+        //   * Swipe       — pointerup with motion >= SWIPE_THRESH_PX
+        //                   from the down point. Fires
+        //                   gesture.swipe(from→to) at release.
+        //   * Tap         — pointerup with motion < SWIPE_THRESH_PX
+        //                   AND duration < LONG_PRESS_MS. Fires
+        //                   gesture.tap at the release point.
+        //
+        // Thresholds are CSS pixels on the IVI pad (not cluster
+        // pixels). The pad surface is ~720–1000 px wide depending
+        // on modal size; 30 px = 3–4% of pad width — large enough
+        // that a steady tap doesn't read as a swipe, small enough
+        // that even a small drag does. 500 ms matches Android's
+        // built-in long-press timeout so the gesture feels native.
+        var LONG_PRESS_MS = 500;
+        var LONG_PRESS_TOL_PX = 10;
+        var SWIPE_THRESH_PX = 30;
+
+        var gesture = {
+          downX: 0,
+          downY: 0,
+          downAt: 0,
+          maxDeltaPx: 0,
+          longPressTimer: null,
+          longPressFired: false,
+        };
+
+        function resetGesture() {
+          if (gesture.longPressTimer != null) {
+            clearTimeout(gesture.longPressTimer);
+            gesture.longPressTimer = null;
+          }
+          gesture.longPressFired = false;
+          gesture.maxDeltaPx = 0;
+        }
+
+        async function fireLongPress() {
+          gesture.longPressFired = true;
+          // Long-press location is the down-point — Android's own
+          // long-press semantics anchor at touch-down, not the
+          // current finger position (which may have drifted
+          // within the tolerance).
+          var rect = pad.getBoundingClientRect();
+          var fx = (gesture.downX - rect.left) / Math.max(1, rect.width);
+          var fy = (gesture.downY - rect.top) / Math.max(1, rect.height);
+          fx = Math.min(Math.max(fx, 0), 1);
+          fy = Math.min(Math.max(fy, 0), 1);
+          var x = Math.round(fx * 1920);
+          var y = Math.round(fy * 720);
+          var clusterId = state.padDisplayId;
+          padStatus.textContent = 'Long-press (' + x + ', ' + y + ')';
           try {
-            if (on) {
-              await call('boot.unset', { packageName: p.packageName });
-              state.bootSet.delete(p.packageName);
-              toast('★ removed: ' + p.label);
-            } else {
-              var args = { packageName: p.packageName };
-              if (state.activeTarget != null) args.displayId = state.activeTarget;
-              await call('boot.set', args);
-              state.bootSet.add(p.packageName);
-              toast('★ set: ' + p.label);
+            // gesture.longPress is tier-2 with requires_step_up=true,
+            // so each one will pop a fresh consent unless the host
+            // has a pre-attached cap. That's the host's call —
+            // we're just dispatching.
+            var r = await call('gesture.longPress', {
+              displayId: clusterId,
+              x: x,
+              y: y,
+              durationMs: LONG_PRESS_MS,
+            });
+            if (!r || r.ok === false) {
+              padStatus.textContent = 'Long-press failed: ' + (r && r.error ? r.error : 'denied');
             }
-            renderPackages();
-            renderBootSummary();
-          } catch (e) {
-            toast('boot toggle failed: ' + (e && e.message), 'err');
+          } catch (err) {
+            padStatus.textContent = 'Long-press failed: ' + (err && err.message);
           }
         }
 
-        // ── Search ────────────────────────────────────────────
+        pad.addEventListener('pointerdown', async function (e) {
+          dragging = true;
+          pad.classList.add('touched');
+          pad.setPointerCapture(e.pointerId);
+          resetGesture();
+          gesture.downX = e.clientX;
+          gesture.downY = e.clientY;
+          gesture.downAt = Date.now();
+          // Local feedback first — never wait on a host roundtrip
+          // for the visual response under the finger.
+          moveDot(e);
+          padDot.classList.add('show');
+          // Arm the long-press timer. Cancelled in pointermove if
+          // motion exceeds tolerance, or in pointerup if released
+          // before the deadline.
+          gesture.longPressTimer = setTimeout(fireLongPress, LONG_PRESS_MS);
+          await ensurePadAttached();
+          if (state.padAttached) {
+            // Cluster cursor: send cluster-mapped coords so the
+            // host-drawn cursor lands on the cluster display, not
+            // on the IVI. Earlier versions sent IVI page coords
+            // (e.clientX/Y) which caused the cursor to render on
+            // the head unit — opposite of what the user wanted.
+            call('cursor.move', padToCluster(e)).catch(function () {});
+          }
+          padStatus.textContent = 'Dragging…';
+        });
+        pad.addEventListener('pointermove', function (e) {
+          if (!dragging) return;
+          moveDot(e);
+          var dx = e.clientX - gesture.downX;
+          var dy = e.clientY - gesture.downY;
+          var delta = Math.hypot(dx, dy);
+          if (delta > gesture.maxDeltaPx) gesture.maxDeltaPx = delta;
+          // Cancel the pending long-press as soon as motion exceeds
+          // the tolerance — past that, the user clearly meant to
+          // drag, not hold.
+          if (gesture.longPressTimer != null && delta > LONG_PRESS_TOL_PX) {
+            clearTimeout(gesture.longPressTimer);
+            gesture.longPressTimer = null;
+          }
+          if (state.padAttached) {
+            // Hot-path; fire-and-forget at pointer cadence (~60Hz).
+            // The host's cursor family bypasses the tier-2 gate for
+            // 5s after attach to support drag without per-frame
+            // cap I/O — see family memo.
+            call('cursor.move', padToCluster(e)).catch(function () {});
+          }
+        });
+        pad.addEventListener('pointerup', async function (e) {
+          if (!dragging) return;
+          dragging = false;
+          pad.releasePointerCapture(e.pointerId);
+          padDot.classList.remove('show');
+          // Long-press already fired from the timer — release is
+          // just the lift-off, no further gesture to dispatch.
+          if (gesture.longPressFired) {
+            resetGesture();
+            return;
+          }
+          // Cancel any still-pending long-press timer (released
+          // before the deadline).
+          if (gesture.longPressTimer != null) {
+            clearTimeout(gesture.longPressTimer);
+            gesture.longPressTimer = null;
+          }
+
+          var clusterId = state.padDisplayId;
+          var fromRect = pad.getBoundingClientRect();
+          var fromX = Math.round(
+            Math.min(
+              Math.max((gesture.downX - fromRect.left) / Math.max(1, fromRect.width), 0),
+              1,
+            ) * 1920,
+          );
+          var fromY = Math.round(
+            Math.min(
+              Math.max((gesture.downY - fromRect.top) / Math.max(1, fromRect.height), 0),
+              1,
+            ) * 720,
+          );
+          var to = padToCluster(e);
+
+          if (gesture.maxDeltaPx >= SWIPE_THRESH_PX) {
+            // Swipe path. Duration is wall-clock — the host needs
+            // a real number to pace the synthetic event train (a
+            // 50 ms swipe vs a 500 ms swipe scrolls very differently
+            // in apps like maps).
+            var durationMs = Math.max(50, Date.now() - gesture.downAt);
+            padStatus.textContent =
+              'Swipe (' + fromX + ',' + fromY + ' → ' + to.x + ',' + to.y + ')';
+            try {
+              var r = await call('gesture.swipe', {
+                displayId: clusterId,
+                fromX: fromX,
+                fromY: fromY,
+                toX: to.x,
+                toY: to.y,
+                durationMs: durationMs,
+              });
+              if (!r || r.ok === false) {
+                padStatus.textContent = 'Swipe failed: ' + (r && r.error ? r.error : 'denied');
+              }
+            } catch (err) {
+              padStatus.textContent = 'Swipe failed: ' + (err && err.message);
+            }
+            resetGesture();
+            return;
+          }
+
+          // Tap path — small motion, quick release.
+          padStatus.textContent = 'Tap (' + to.x + ', ' + to.y + ')';
+          try {
+            var r2 = await call('gesture.tap', {
+              displayId: clusterId,
+              x: to.x,
+              y: to.y,
+            });
+            if (!r2 || r2.ok === false) {
+              padStatus.textContent = 'Tap failed: ' + (r2 && r2.error ? r2.error : 'denied');
+            }
+          } catch (err) {
+            padStatus.textContent = 'Tap failed: ' + (err && err.message);
+          }
+          resetGesture();
+        });
+        pad.addEventListener('pointercancel', function () {
+          // Pointer was hijacked (system gesture, multi-touch, etc.)
+          // Hide the dot so we don't leave a stale indicator and
+          // drop any pending long-press so it doesn't fire after
+          // the cancel.
+          dragging = false;
+          padDot.classList.remove('show');
+          resetGesture();
+        });
+
+        // ── Search ───────────────────────────────────────────
         $('#search').addEventListener('input', function (e) {
           state.filter = e.target.value;
           renderPackages();
         });
 
-        // ── Safety dim toggle ─────────────────────────────────
-        // When ON, every successful launch / move on a non-IVI
-        // display also mounts a semi-transparent overlay
-        // (`/dim.html?level=…`) on top. The scrim leaves a clear
-        // band at the bottom 28% so the speedometer stays
-        // readable regardless of how bright the app underneath
-        // is. When OFF, any mounted scrims get torn down.
-        $('#dimToggle').addEventListener('click', async function () {
-          state.dimEnabled = !state.dimEnabled;
-          var btn = $('#dimToggle');
-          btn.classList.toggle('on', state.dimEnabled);
-          $('#dimState').textContent = state.dimEnabled ? 'on' : 'off';
-          if (state.dimEnabled) {
-            await ensureDimForActiveTarget();
-          } else {
-            await clearAllDims();
-          }
-        });
-
-        // ── Boot ──────────────────────────────────────────────
-        async function start() {
-          try {
-            await loadDisplays();
-          } catch (e) {
-            toast('display.list failed: ' + (e && e.message), 'err');
-          }
-          try {
-            await loadBoot();
-          } catch (e) {
-            // Non-fatal — boot.write may not be granted yet.
-            console.warn('boot.list failed:', e && e.message);
-          }
-          try {
-            await loadPackages();
-          } catch (e) {
-            $('#list').innerHTML =
-              '<div class="empty">pkg.list failed: ' +
-              escapeHtml(String((e && e.message) || e)) +
-              '</div>';
-          }
-        }
-
-        start();
-      })();
+        // ── Boot ─────────────────────────────────────────────
+        await loadDisplays();
+        await loadPackages();
+      })().catch(function (e) {
+        document.getElementById('list').innerHTML =
+          '<div class="empty">init failed: ' + (e && e.message) + '</div>';
+      });
     </script>
   </body>
 </html>
