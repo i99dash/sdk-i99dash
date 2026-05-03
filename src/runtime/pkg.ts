@@ -1,21 +1,30 @@
 /// Mini-app-facing controller for the host's `pkg` family.
 ///
-/// Two permissions in one family:
+/// Three permissions in one family:
 ///
 ///   * `pkg.read` (tier-1) — `list`, `foreground`, `usage`. Cheap,
 ///     read-only. Available on a secondary surface so a cluster
 ///     widget can render "now playing on IVI" pills without needing
 ///     a privileged grant.
-///   * `pkg.launch` (tier-2) — `launch`. Starts an installed app on
-///     a chosen display. The IVI uses `Context.startActivity`; for
-///     non-default displays the host falls back to `am start
-///     --display N` over loopback ADB.
+///   * `pkg.launch` (tier-2) — `launch` / `move` on `ivi` or
+///     `passenger` displays. The IVI uses `Context.startActivity`;
+///     for the passenger display the host falls back to `am start
+///     --display N` over loopback ADB. Cluster displays are NOT
+///     covered by this permission — the standard `launch` op
+///     rejects them with `error: 'role:requires_cluster_op'`.
+///   * `pkg.launch.cluster` (tier-3) — `launchCluster` /
+///     `moveCluster` on `cluster` displays (driver-instrument
+///     virtual surfaces). Separate permission so a manifest must
+///     opt in explicitly; the host treats this as vehicle-control
+///     adjacent (sub-second revocation, per-VIN ban semantics).
 ///
 /// Declare the permissions you need in `manifest.permissions[]`. A
-/// launcher mini-app declares both; a "now playing" widget declares
+/// pure IVI / passenger launcher declares `pkg.read` + `pkg.launch`;
+/// a cluster widget that puts an app on the driver display also
+/// declares `pkg.launch.cluster`. A "now playing" widget declares
 /// only `pkg.read`.
 ///
-/// Typical usage — quick launcher:
+/// Typical usage — quick launcher (IVI + passenger):
 ///
 ///     const apps = await client.pkg.list();
 ///     for (const app of apps) {
@@ -23,9 +32,18 @@
 ///       card.onclick = () => client.pkg.launch(app.packageName);
 ///     }
 ///
-/// Cluster launcher (open on the cluster slot):
+/// Cluster launcher — opens on the driver display. The displayId
+/// MUST come from a `display.list()` entry with `role === 'cluster'`;
+/// the standard `launch` would reject it. Requires
+/// `pkg.launch.cluster` in the manifest:
 ///
-///     await client.pkg.launch('com.byd.maps', { displayId: 4 });
+///     const cluster = (await client.display.list())
+///       .find(d => d.role === 'cluster');
+///     if (cluster) {
+///       await client.pkg.launchCluster('com.byd.maps', {
+///         displayId: cluster.id,
+///       });
+///     }
 
 import type { Bridge } from './bridge.js';
 import { BaseFamilyController, type InvokeFamilyOptions } from './family-controller.js';
@@ -160,15 +178,16 @@ export class PkgController extends BaseFamilyController {
 
   /**
    * Move a running package's task to another display. Use this for
-   * "I set up the route on the IVI, now show the running app on the
-   * cluster" workflows where {@link launch} would otherwise be
-   * foiled by the package's own router activity auto-redirecting to
-   * the home display (Waze, certain BYD apps).
+   * "I set up the route on the IVI, now move the running app to the
+   * passenger display" workflows where {@link launch} would
+   * otherwise be foiled by the package's own router activity
+   * auto-redirecting to the home display (Waze, certain BYD apps).
    *
-   * Returns `{ok: false, path: 'denied', error: 'package not
-   * running'}` if the package isn't currently running. The host
-   * uses `am stack move-task` over loopback ADB, the same path the
-   * surface family uses for cluster surfaces.
+   * Only `ivi` / `passenger` displays are accepted — cluster moves
+   * use {@link moveCluster}. Returns `{ok: false, path: 'denied',
+   * error: 'package not running'}` if the package isn't currently
+   * running. The host uses `am stack move-task` over loopback ADB,
+   * the same path the surface family uses for cluster surfaces.
    */
   async move(
     packageName: string,
@@ -180,5 +199,57 @@ export class PkgController extends BaseFamilyController {
       { packageName, displayId: opts.displayId },
       invokeOpts,
     );
+  }
+
+  /**
+   * Cluster-targeted launch. Same shape as {@link launch} but the
+   * host enforces that the displayId resolves to a `cluster` role
+   * (driver-instrument virtual display). Requires
+   * `pkg.launch.cluster` in `manifest.permissions[]`.
+   *
+   * Returns `{ok: false, path: 'denied', error: 'role:expected_cluster_got_<role>'}`
+   * if the displayId belongs to ivi / passenger / unknown. The
+   * caller should pick its target from `display.list()` filtered to
+   * `role === 'cluster'`.
+   */
+  async launchCluster(
+    packageName: string,
+    opts: { displayId: number },
+    invokeOpts: InvokeFamilyOptions = {},
+  ): Promise<LaunchResult> {
+    return this.invoke<LaunchResult>(
+      'launch_cluster',
+      { packageName, displayId: opts.displayId },
+      invokeOpts,
+    );
+  }
+
+  /**
+   * Cluster-targeted move. Same role contract as
+   * {@link launchCluster}; same `pkg.launch.cluster` permission.
+   */
+  async moveCluster(
+    packageName: string,
+    opts: { displayId: number },
+    invokeOpts: InvokeFamilyOptions = {},
+  ): Promise<LaunchResult> {
+    return this.invoke<LaunchResult>(
+      'move_cluster',
+      { packageName, displayId: opts.displayId },
+      invokeOpts,
+    );
+  }
+
+  /**
+   * `am force-stop {packageName}`. Symmetric inverse of
+   * {@link launch} / {@link launchCluster}: tear down a package the
+   * mini-app previously started so the original surface owner
+   * (e.g. XDJA's projection on the cluster) can reclaim the slot.
+   *
+   * Permission: `pkg.launch` (the same scope you needed to start
+   * the app in the first place — no separate `pkg.stop` scope).
+   */
+  async stop(packageName: string, invokeOpts: InvokeFamilyOptions = {}): Promise<LaunchResult> {
+    return this.invoke<LaunchResult>('stop', { packageName }, invokeOpts);
   }
 }
