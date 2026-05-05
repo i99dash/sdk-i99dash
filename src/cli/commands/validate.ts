@@ -28,7 +28,7 @@ import { logger } from '../util/logger.js';
 
 export interface ValidateOptions {
   cwd: string;
-  /// Skip every network-dependent check (perm-gate, republish warning).
+  /// Skip every network-dependent check (republish warning).
   /// Used by CI / offline workflows so a missing token doesn't fail
   /// the schema-only validation that's the historical contract.
   offline?: boolean;

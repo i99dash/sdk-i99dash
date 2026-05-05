@@ -35,7 +35,6 @@ import {
   UsageError,
   runLogin,
   runLogout,
-  runPerms,
   runPublish,
   runStatus,
   runValidate,
@@ -129,15 +128,6 @@ program
   .description('show your developer-lifecycle snapshot (apps + review status + active keys)')
   .action(async (appId: string | undefined) => {
     await runStatus({ appId });
-  });
-
-program
-  .command('perms')
-  .description(
-    'show the privilege-tier capability catalog (cmdExec.* on cars) + your grants/requests',
-  )
-  .action(async () => {
-    await runPerms();
   });
 
 program

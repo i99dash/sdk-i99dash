@@ -16,7 +16,6 @@ export { runDoctor } from './commands/doctor.js';
 export { runInit, TEMPLATES, type TemplateName } from './commands/init.js';
 export { runLogin } from './commands/login.js';
 export { runLogout } from './commands/logout.js';
-export { runPerms } from './commands/perms.js';
 export { runPublish } from './commands/publish.js';
 export { runStatus } from './commands/status.js';
 export { runValidate } from './commands/validate.js';

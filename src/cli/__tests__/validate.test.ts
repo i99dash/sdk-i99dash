@@ -28,8 +28,8 @@ describe('runValidate', () => {
         category: 'services',
       }),
     );
-    // ``offline: true`` skips the network-dependent perms-catalog +
-    // republish-status checks. Without it the test runner inherits any
+    // ``offline: true`` skips the network-dependent republish-status
+    // check. Without it the test runner inherits any
     // ambient access token from the dev's keychain and calls the live
     // backend, which can exceed the 5s vitest timeout in CI / on slow
     // network and surface as a flaky timeout instead of a logic error.

@@ -117,29 +117,6 @@ export const MiniAppManifestSchema = z.object({
   /// if the app is read-only, glanceable, no text input / video /
   /// interactive map.
   safeWhileDriving: z.boolean().default(false),
-
-  /// Family read-only namespaces the bundle calls (``media.read``,
-  /// ``vehicle.environment``, …). The host gates every family bridge
-  /// call on this list — a missing entry returns ``permission_denied``
-  /// from the host. Any signed publisher can declare them.
-  ///
-  /// Validated against the host's known-family set on submit; an
-  /// unknown name fails the publish.
-  permissions: z
-    .array(
-      z.enum([
-        'car.status.read',
-        'climate.read',
-        'connectivity.read',
-        'location.read',
-        'media.read',
-        'nav.read',
-        'system.read',
-        'vehicle.diagnostics',
-        'vehicle.environment',
-      ]),
-    )
-    .default([]),
 });
 
 export type MiniAppManifest = z.infer<typeof MiniAppManifestSchema>;
