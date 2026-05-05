@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       i99dash:
-        specifier: ^2.0.0
-        version: 2.0.0(zod@3.25.76)
+        specifier: ^2.1.0
+        version: 2.1.0(zod@3.25.76)
 
 packages:
 
@@ -233,8 +233,8 @@ packages:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
     engines: {node: '>= 0.8'}
 
-  i99dash@2.0.0:
-    resolution: {integrity: sha512-XjKAPBQ1OGuL98oPfYm+Ext4164VtMl0N+Lv4fZt840qKOTbfvgKLhW9P6u/U5rP/dE0Zh2dbyZ7xOkEfNInHQ==}
+  i99dash@2.1.0:
+    resolution: {integrity: sha512-CHkmNiveHa3ovEdllnNC2mFheD/9tApEflDC8i5f9+W/4a+syUSkN7jlrrkbUi1d+w7Ghr+ZDOefXA7QkMjTrQ==}
     engines: {node: '>=20'}
     hasBin: true
     peerDependencies:
@@ -795,7 +795,7 @@ snapshots:
       statuses: 2.0.2
       toidentifier: 1.0.1
 
-  i99dash@2.0.0(zod@3.25.76):
+  i99dash@2.1.0(zod@3.25.76):
     dependencies:
       '@fastify/static': 9.1.3
       chokidar: 5.0.0
