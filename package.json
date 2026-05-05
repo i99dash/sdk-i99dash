@@ -1,6 +1,6 @@
 {
   "name": "i99dash",
-  "version": "1.10.0",
+  "version": "2.0.0",
   "description": "Developer SDK + CLI for i99dash mini-apps. Runtime client, admin client, and the i99dash command in one install.",
   "license": "MIT",
   "homepage": "https://github.com/i99dash/i99dash-sdk#readme",

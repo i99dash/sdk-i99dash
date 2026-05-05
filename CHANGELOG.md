@@ -2,6 +2,17 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.0](https://github.com/i99dash/i99dash-sdk/compare/v1.10.0...v2.0.0) (2026-05-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **display:** `client.display.list()` now resolves to `DisplayListResult` (`{displays, vehicle?}`) instead of `DisplaySnapshot[]`. Migration is one rename per call site:
+
+### Features
+
+* **display:** surface every host wire field + driver-eyeline contract ([#32](https://github.com/i99dash/i99dash-sdk/issues/32)) ([f0b8ab0](https://github.com/i99dash/i99dash-sdk/commit/f0b8ab057842d455cb348982dd381b89d465f2e2))
+
 ## [1.10.0](https://github.com/i99dash/i99dash-sdk/compare/v1.9.0...v1.10.0) (2026-05-05)
 
 
