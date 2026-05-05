@@ -253,4 +253,3 @@ export async function getDevStatus(api: ApiClient, appId?: string): Promise<DevS
     : '/api/v1/dev/status';
   return api.get(path, (body) => DevStatusSchema.parse(body));
 }
-
