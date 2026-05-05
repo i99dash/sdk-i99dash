@@ -1,3 +1,39 @@
+# Migrating to v3.0 — perm/cap removal
+
+`3.0.0` removes the install-time permission/capability gating surface that `2.x` carried alongside the runtime feature-probing API. The cleanup is mechanical: a few manifest fields disappear and two CLI commands stop existing.
+
+## Manifest schema
+
+Two top-level fields are gone from `MiniAppManifestSchema`:
+
+```diff
+ {
+   "id": "com.example.app",
+   "name": "Example",
+-  "requiredPermissions": ["car.read"],
+-  "requiredCapabilities": ["climate"]
+ }
+```
+
+The Zod parser strips these at validation time; downstream consumers (host installer, admin review surface) no longer read them. Apps that need to branch on host capability should do it at runtime via `client.has("car.read")` — same shape as before, just probed once on mount instead of declared in the manifest.
+
+## CLI
+
+Two commands removed:
+
+```bash
+i99dash login    # was: dev-cert acquisition
+i99dash perms    # was: list / request perm grants
+```
+
+The matching modules (`src/cli/api/endpoints.ts`, `src/cli/auth/cert.ts`, `src/cli/commands/login.ts`, `src/cli/commands/perms.ts`) are gone. `init`, `validate`, `dev`, `build`, `publish`, `doctor`, `beta` are unchanged.
+
+## Why
+
+The privilege-tier surface is being retired across the platform — see the paired changes on backend (`admin_perms` / `dev_access` removal), the head-unit (perms tier UI dropped), the docs site (privilege-tiers / pii-scopes / privileged-apps pages removed), and the website admin (developer portal cert/template/perm surfaces removed). Runtime feature probing covers every legitimate capability check; install-time gating added complexity without closing a gap the runtime didn't already close.
+
+---
+
 # Migrating from the old `@i99dash/*` packages
 
 All six packages — `@i99dash/sdk-types`, `@i99dash/sdk`, `@i99dash/admin-sdk`, `@i99dash/sdk-cli`, `@i99dash/sdk-react`, `@i99dash/sdk-dev-server` — have been consolidated into a single `i99dash` package on public npm. The old packages are deprecated; new releases publish only the consolidated one.
