@@ -94,6 +94,22 @@ export interface LaunchOptions {
    *  loopback ADB for non-default displays — same path the surface
    *  family uses for cluster slots. */
   displayId?: number;
+  /** Role hint for trims where the requested role isn't an
+   *  addressable Android `Display`. Today the only case is
+   *  `'passenger'` on Di5.0 trims (Leopard 5 / Leopard 5 Ultra),
+   *  where the passenger panel is reachable only via DiShare's
+   *  mirror chain — `display.list()` returns no entry to feed
+   *  into `displayId`, so the SDK passes the hint and the host's
+   *  `pkg.launch.dishare` cap kicks in.
+   *
+   *  Pass alongside (or instead of) `displayId`; when both are
+   *  set the role hint takes precedence on Di5.0 trims and is
+   *  ignored elsewhere. Most call sites set this only after
+   *  `display.list().vehicle.capabilities.includes('pkg.launch.dishare')`
+   *  AND there's no passenger Display in the list — see the
+   *  [multi-display guide](https://i99dash.app/docs/guides/multi-display#l5-di5-0-passenger-via-dishare)
+   *  for the full pattern. */
+  targetRole?: 'passenger';
 }
 
 export interface LaunchResult {
@@ -102,9 +118,14 @@ export interface LaunchResult {
    *
    *    * `intent-launch` — `Context.startActivity` (default display).
    *    * `am-start` — `am start --display N` (non-default display).
+   *    * `dishare-cast` — DiShare mirror chain commit (L5 / L5U
+   *      passenger panel via the `targetRole: 'passenger'` hint).
+   *    * `dishare-denied` — DiShare path attempted but the service
+   *      bind / register / arm step failed. `error` carries a
+   *      typed reason (`bind_failed`, `register_failed`, etc.).
    *    * `denied` — package not launchable, or the host doesn't
    *      have permission for the requested display. */
-  path: 'intent-launch' | 'am-start' | 'denied';
+  path: 'intent-launch' | 'am-start' | 'dishare-cast' | 'dishare-denied' | 'denied';
   error?: string | null;
 }
 
@@ -171,6 +192,7 @@ export class PkgController extends BaseFamilyController {
       {
         packageName,
         ...(opts.displayId !== undefined ? { displayId: opts.displayId } : {}),
+        ...(opts.targetRole !== undefined ? { targetRole: opts.targetRole } : {}),
       },
       invokeOpts,
     );
