@@ -4,9 +4,7 @@
 ///   * vanilla — generates files inline (string templates), exercised
 ///     end-to-end so a refactor can't silently drop the icon copy.
 ///   * cluster-widget — bundles `src/index.html` + `src/cluster.html`
-///     from `src/cli/templates/cluster-widget/`. Asserts the manifest
-///     declares the right Phase A permissions
-///     (`display.read`, `surface.write`).
+///     from `src/cli/templates/cluster-widget/`.
 ///
 /// Doesn't network or sideload — pure filesystem scaffolding test.
 
@@ -56,12 +54,9 @@ describe('runInit', () => {
     const manifest = JSON.parse(await readFile(join(target, 'manifest.json'), 'utf8'));
     expect(manifest.id).toBe('my-app');
     expect(manifest.icon).toBe('./assets/icon.svg');
-    // Vanilla scaffolds leave `requiredPermissions` off — Phase A
-    // families need to be opted into per-template.
-    expect(manifest.requiredPermissions).toBeUndefined();
   });
 
-  it('cluster-widget scaffold copies the bundled HTML + declares Phase A perms', async () => {
+  it('cluster-widget scaffold copies the bundled HTML', async () => {
     await runInit({
       cwd: dir,
       dir: 'my-cluster',
@@ -77,7 +72,6 @@ describe('runInit', () => {
 
     const manifest = JSON.parse(await readFile(join(target, 'manifest.json'), 'utf8'));
     expect(manifest.id).toBe('my-cluster');
-    expect(manifest.requiredPermissions).toEqual(['display.read', 'surface.write']);
     expect(manifest.minHostVersion).toBe('1.3.0');
     expect(manifest.category).toBe('developer');
   });

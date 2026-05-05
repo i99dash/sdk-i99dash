@@ -1,7 +1,6 @@
 /// Mini-app-facing controller for the host's `display` family.
 ///
-/// Tier-1 (read-only); no consent prompt, no cap. Permission
-/// declared in `manifest.permissions[]` as `display.read`.
+/// Read-only; no consent prompt.
 ///
 ///     const r = await client.display.list();
 ///     // Pick by role rather than the legacy isCluster flag — role

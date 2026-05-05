@@ -25,11 +25,11 @@ unit.
 
 ## Files
 
-| Path            | Role                                                                                            |
-| --------------- | ----------------------------------------------------------------------------------------------- |
-| `manifest.json` | Catalog row — `requiredPermissions: ["display.read", "surface.write"]`. minHostVersion `1.1.0`. |
-| `index.html`    | IVI side. Lists displays, opens / closes a surface on the cluster.                              |
-| `cluster.html`  | Cluster side. Static "Hello from the cluster" + a live clock.                                   |
+| Path            | Role                                                               |
+| --------------- | ------------------------------------------------------------------ |
+| `manifest.json` | Catalog row. minHostVersion `1.1.0`.                               |
+| `index.html`    | IVI side. Lists displays, opens / closes a surface on the cluster. |
+| `cluster.html`  | Cluster side. Static "Hello from the cluster" + a live clock.      |
 
 ## Running it
 

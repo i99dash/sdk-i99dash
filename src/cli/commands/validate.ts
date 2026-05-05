@@ -9,20 +9,17 @@
 ///      validate.ts behaviour).
 ///   2. APP_VERSION drift across src/**/*.html literals (fs scan;
 ///      closes cli.md §3).
-///   3. requiredPermissions gate against the dev's catalog (one HTTP;
-///      closes cli.md §5; needs auth, skipped on `--offline`).
-///   4. Same-version-as-latest-published warning (one HTTP; closes
+///   3. Same-version-as-latest-published warning (one HTTP; closes
 ///      cli.md §4; needs auth).
 ///
 /// The schema check is fatal; everything else is structured so a
-/// caller can opt to demote warnings to info via flags. `runPublish`
-/// uses default behaviour — strict on perms, warn on the others.
+/// caller can opt to demote warnings to info via flags.
 
 import { readFile, readdir } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 
 import { ApiClient } from '../api/client.js';
-import { getDevPermsCatalog, getDevStatus } from '../api/endpoints.js';
+import { getDevStatus } from '../api/endpoints.js';
 import { requireAccessToken } from '../auth/session.js';
 import { loadManifest, loadSdkConfig } from '../config/load.js';
 import { resolvedBackendUrl } from '../config/paths.js';
@@ -31,7 +28,7 @@ import { logger } from '../util/logger.js';
 
 export interface ValidateOptions {
   cwd: string;
-  /// Skip every network-dependent check (perm-gate, republish warning).
+  /// Skip every network-dependent check (republish warning).
   /// Used by CI / offline workflows so a missing token doesn't fail
   /// the schema-only validation that's the historical contract.
   offline?: boolean;
@@ -77,8 +74,8 @@ export async function runValidate(opts: ValidateOptions): Promise<void> {
   // deliberately decouple the two strings.
   await warnAppVersionDrift({ cwd: opts.cwd, manifestVersion: manifest.version });
 
-  // 3 + 4. Network-dependent checks. Bundle them so we mint the API
-  // client once. Skip on --offline or when no token is present.
+  // 3. Network-dependent checks. Skip on --offline or when no token
+  // is present.
   if (opts.offline) {
     logger.info('skipping network checks (--offline)');
     return;
@@ -88,33 +85,13 @@ export async function runValidate(opts: ValidateOptions): Promise<void> {
   try {
     token = await requireAccessToken();
   } catch {
-    logger.info('not logged in — skipping perm + republish checks');
+    logger.info('not logged in — skipping republish check');
     return;
   }
 
   const api = new ApiClient(resolvedBackendUrl(), token);
 
-  // 3. requiredPermissions gate (sdk-workflow/cli.md §5). Originally lived
-  // in publish.ts AFTER the build step — devs wasted ~15s on a build
-  // every time they forgot to request a perm. Moved here so the
-  // failure happens before any expensive work.
-  const required = (manifest as { requiredPermissions?: string[] }).requiredPermissions ?? [];
-  if (required.length > 0) {
-    const catalog = await getDevPermsCatalog(api);
-    const heldIds = new Set(catalog.items.filter((c) => c.grantedGrantId).map((c) => c.id));
-    const missing = required.filter((id) => !heldIds.has(id));
-    if (missing.length > 0) {
-      logger.error(`manifest declares permissions you don't currently hold: ${missing.join(', ')}`);
-      logger.info(
-        'Request them at https://dev.i99dash.app/developers/permissions before publishing.',
-      );
-      // Fatal — same severity as the original publish-time gate, just
-      // surfaced earlier.
-      throw new ValidationFailedError(`missing permission(s): ${missing.join(', ')}`);
-    }
-  }
-
-  // 4. Same-version warning (sdk-workflow/cli.md §4). The backend
+  // 3. Same-version warning (sdk-workflow/cli.md §4). The backend
   // accepts a same-version resubmit but treats it as a no-op — the
   // CDN keeps the old bytes, the device never sees the new bundle.
   // Warn loudly so the dev bumps the version before publishing.

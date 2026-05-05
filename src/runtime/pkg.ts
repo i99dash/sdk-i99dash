@@ -1,28 +1,15 @@
 /// Mini-app-facing controller for the host's `pkg` family.
 ///
-/// Three permissions in one family:
+/// Three operations:
 ///
-///   * `pkg.read` (tier-1) — `list`, `foreground`, `usage`. Cheap,
-///     read-only. Available on a secondary surface so a cluster
-///     widget can render "now playing on IVI" pills without needing
-///     a privileged grant.
-///   * `pkg.launch` (tier-2) — `launch` / `move` on `ivi` or
-///     `passenger` displays. The IVI uses `Context.startActivity`;
-///     for the passenger display the host falls back to `am start
-///     --display N` over loopback ADB. Cluster displays are NOT
-///     covered by this permission — the standard `launch` op
+///   * `list` / `foreground` / `usage` — read-only.
+///   * `launch` / `move` on `ivi` or `passenger` displays. The IVI
+///     uses `Context.startActivity`; for the passenger display the
+///     host falls back to `am start --display N` over loopback ADB.
+///     Cluster displays are NOT covered — the standard `launch` op
 ///     rejects them with `error: 'role:requires_cluster_op'`.
-///   * `pkg.launch.cluster` (tier-3) — `launchCluster` /
-///     `moveCluster` on `cluster` displays (driver-instrument
-///     virtual surfaces). Separate permission so a manifest must
-///     opt in explicitly; the host treats this as vehicle-control
-///     adjacent (sub-second revocation, per-VIN ban semantics).
-///
-/// Declare the permissions you need in `manifest.permissions[]`. A
-/// pure IVI / passenger launcher declares `pkg.read` + `pkg.launch`;
-/// a cluster widget that puts an app on the driver display also
-/// declares `pkg.launch.cluster`. A "now playing" widget declares
-/// only `pkg.read`.
+///   * `launchCluster` / `moveCluster` on `cluster` displays
+///     (driver-instrument virtual surfaces).
 ///
 /// Typical usage — quick launcher (IVI + passenger):
 ///
@@ -226,8 +213,7 @@ export class PkgController extends BaseFamilyController {
   /**
    * Cluster-targeted launch. Same shape as {@link launch} but the
    * host enforces that the displayId resolves to a `cluster` role
-   * (driver-instrument virtual display). Requires
-   * `pkg.launch.cluster` in `manifest.permissions[]`.
+   * (driver-instrument virtual display).
    *
    * Returns `{ok: false, path: 'denied', error: 'role:expected_cluster_got_<role>'}`
    * if the displayId belongs to ivi / passenger / unknown. The

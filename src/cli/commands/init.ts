@@ -229,10 +229,8 @@ function manifestJsonTemplate(dirName: string, category: string): string {
   )}\n`;
 }
 
-/// cluster-widget manifest declares the two permissions a cluster
-/// renderer needs (display.read to enumerate, surface.write to mount).
-/// minHostVersion is set to 1.3.0 because that's where the host's
-/// Phase A surface family ships.
+/// cluster-widget manifest. minHostVersion is set to 1.3.0 because
+/// that's where the host's Phase A surface family ships.
 function clusterWidgetManifestTemplate(id: string): string {
   return `${JSON.stringify(
     {
@@ -248,7 +246,6 @@ function clusterWidgetManifestTemplate(id: string): string {
       minHostVersion: '1.3.0',
       category: 'developer',
       safeWhileDriving: false,
-      requiredPermissions: ['display.read', 'surface.write'],
     },
     null,
     2,

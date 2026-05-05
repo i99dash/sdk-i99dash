@@ -14,14 +14,5 @@
   "minHostVersion": "1.7.0",
   "category": "lifestyle",
   "safeWhileDriving": false,
-  "requiredPermissions": [
-    "display.read",
-    "pkg.read",
-    "pkg.launch",
-    "pkg.launch.cluster",
-    "cursor.write",
-    "gesture.dispatch"
-  ],
-  "requiredCapabilities": ["display.read", "pkg.read", "pkg.launch.ivi"],
   "screenshots": []
 }

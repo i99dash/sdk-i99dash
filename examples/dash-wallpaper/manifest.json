@@ -14,6 +14,5 @@
   "minHostVersion": "1.2.0",
   "category": "lifestyle",
   "safeWhileDriving": false,
-  "requiredPermissions": ["display.read", "surface.write"],
   "screenshots": []
 }

@@ -1,17 +1,10 @@
 import { z } from 'zod';
 
-/// Vehicle / hardware capabilities the host advertises and mini-apps
-/// declare as required. Distinct from `permissions` (family bridge
-/// gating) and `requiredPermissions` (developer-grant scoping):
-///
-///   * `permissions`           — does the *host* implement this family?
-///   * `requiredPermissions`   — is the *publisher* allowed to ship it?
-///   * `requiredCapabilities`  — does the *physical car* support it?
-///
-/// The catalog merge filters apps whose required capabilities aren't a
-/// subset of the active vehicle's capabilities, dimming (not hiding)
-/// them with a `caps_missing` reason — see `feedback_perms_hide_not_disable`
-/// for why dim-with-reason wins over silent omission.
+/// Vehicle / hardware capabilities the host advertises. The host
+/// publishes its capability bitmask so callers (catalog merge,
+/// runtime feature checks) can ask "does the *physical car*
+/// support this?" — see `feedback_perms_hide_not_disable` for the
+/// dim-with-reason vs silent-omission rationale.
 ///
 /// **Bit positions are frozen — never reorder.** New capabilities append
 /// to the end; removed capabilities leave a tombstone with a `null`

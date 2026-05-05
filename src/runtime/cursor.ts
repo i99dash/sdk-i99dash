@@ -1,9 +1,7 @@
 /// Mini-app-facing controller for the host's `cursor` family.
 ///
-/// Tier-2; `attach` runs the full gate, subsequent `move` calls run
-/// under a 5-second hot-path bypass so a 60 Hz drag doesn't burn
-/// the cap store. Permission declared in `manifest.permissions[]` as
-/// `cursor.write`.
+/// `attach` opens a session; subsequent `move` calls reuse it so a
+/// 60 Hz drag doesn't burn the cap store.
 ///
 /// The cursor view is on the IVI as a touchpad-style indicator. The
 /// `targetDisplayId` is metadata the host stamps so the mini-app can

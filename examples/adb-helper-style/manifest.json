@@ -5,7 +5,7 @@
     "ar": "أدوات النظام"
   },
   "description": {
-    "en": "Diagnostic + maintenance tools for this head-unit. Manage installed apps, view logs, restart services, browse files. Privileged operations (cmdExec.*) require an installed cert.",
+    "en": "Diagnostic + maintenance tools for this head-unit. Manage installed apps, view logs, restart services, browse files.",
     "ar": "أدوات التشخيص والصيانة لوحدة الرأس هذه. إدارة التطبيقات المثبتة، وعرض السجلات، وإعادة تشغيل الخدمات، وتصفح الملفات."
   },
   "icon": "./assets/icon.svg",
@@ -13,6 +13,5 @@
   "version": "0.2.0",
   "minHostVersion": "0.0.2",
   "category": "developer",
-  "safeWhileDriving": false,
-  "requiredPermissions": ["cmdExec.read", "cmdExec.control"]
+  "safeWhileDriving": false
 }

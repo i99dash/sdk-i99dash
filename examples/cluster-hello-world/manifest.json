@@ -13,6 +13,5 @@
   "version": "0.2.0",
   "minHostVersion": "1.1.0",
   "category": "developer",
-  "safeWhileDriving": false,
-  "requiredPermissions": ["display.read", "surface.write"]
+  "safeWhileDriving": false
 }

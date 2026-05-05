@@ -918,10 +918,8 @@
         // Host 1.7+ ships `vehicle.capabilities` (string list) and
         // `vehicle.capabilityBits` (packed) from `display.list`. Use
         // them as the authoritative gate per the recipe in
-        // /docs/recipes/required-capabilities — the catalog filter
-        // already cleared `requiredCapabilities` (display.read,
-        // pkg.read, pkg.launch.ivi); cluster + passenger are optional
-        // and gated client-side from the bit list.
+        // /docs/recipes/vehicle-capabilities — cluster + passenger
+        // surfaces are optional and gated client-side from the bit list.
         //
         // Bits we care about for pkg-launcher:
         //   * pkg.launch.cluster.pixel — driver cluster (L8, L5L)

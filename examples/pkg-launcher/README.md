@@ -31,31 +31,10 @@ The mini-app picks `pkg.launch` vs `pkg.launch_cluster` automatically
 from the selected card's role; `display.list` returns `role` since
 host 1.4.0 (older hosts fall back to the legacy `isCluster` flag).
 
-Permissions declared in `manifest.json`:
-
-```json
-"requiredPermissions": [
-  "display.read", "pkg.read",
-  "pkg.launch", "pkg.launch.cluster",
-  "cursor.write", "gesture.dispatch"
-],
-"requiredCapabilities": [
-  "display.read", "pkg.read", "pkg.launch.ivi"
-]
-```
-
-`pkg.launch.cluster` is a separate permission because the cluster
-sits in the driver's eyeline; the host treats cluster targets as
-vehicle-control adjacent and refuses any launch the manifest didn't
-explicitly opt in to. The touchpad needs `cursor.write` for the
-drag overlay on the cluster and `gesture.dispatch` to dispatch the
-release tap.
-
-`requiredCapabilities` is the **vehicle-hardware floor** (host 1.7+).
-Only the IVI launch is mandatory — the cluster + passenger cards
-are gated client-side from `display.list().vehicle.capabilities` so
-the catalog tile stays launchable on every car. See [Adapts per
-trim](#adapts-per-trim) below for the per-trim matrix.
+Cluster + passenger surfaces are gated client-side from
+`display.list().vehicle.capabilities` so the catalog tile stays
+launchable on every car. See [Adapts per trim](#adapts-per-trim)
+below for the per-trim matrix.
 
 ## Adapts per trim
 

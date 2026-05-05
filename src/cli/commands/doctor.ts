@@ -47,8 +47,6 @@ const REQUIRED_MANIFEST_FIELDS = [
   'version',
   'category',
   'safeWhileDriving',
-  'requiredPermissions',
-  'permissions',
 ] as const;
 
 export interface DoctorOptions {

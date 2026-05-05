@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import slugsJson from './category-slugs.json' with { type: 'json' };
-import { VEHICLE_CAPABILITIES, type VehicleCapability } from './vehicle-capabilities.js';
 
 /// Two-letter locale code (`ar`, `en`, ...) → display string.
 /// At least one entry is required so the host can always render a name.
@@ -118,57 +117,6 @@ export const MiniAppManifestSchema = z.object({
   /// if the app is read-only, glanceable, no text input / video /
   /// interactive map.
   safeWhileDriving: z.boolean().default(false),
-
-  /// Phase G — privilege-tier opt-in. List of `cmdExec.*` permission
-  /// ids the bundle needs at runtime. Empty (default) = unprivileged
-  /// publish. The SDK CLI checks this list against the developer's
-  /// granted perms BEFORE upload-url is minted, so a missing perm
-  /// surfaces as a fast-fail with "request these first" instead of
-  /// at runtime when the device blocks the action. The backend's
-  /// `MiniAppService.submit` re-validates server-side as defence in
-  /// depth.
-  requiredPermissions: z.array(z.string().min(1).max(64)).default([]),
-
-  /// Family read-only namespaces the bundle calls (``media.read``,
-  /// ``vehicle.environment``, …). The host gates every family bridge
-  /// call on this list — a missing entry returns ``permission_denied``
-  /// from the host. Distinct from ``requiredPermissions`` because
-  /// family reads have no per-developer grant requirement; any signed
-  /// publisher can declare them.
-  ///
-  /// Validated against the host's known-family set on submit; an
-  /// unknown name fails the publish.
-  permissions: z
-    .array(
-      z.enum([
-        'car.status.read',
-        'climate.read',
-        'connectivity.read',
-        'location.read',
-        'media.read',
-        'nav.read',
-        'system.read',
-        'vehicle.diagnostics',
-        'vehicle.environment',
-      ]),
-    )
-    .default([]),
-
-  /// Vehicle / hardware capabilities the bundle needs to function. The
-  /// host's catalog merge dims rows where the active car doesn't
-  /// expose every entry here (subset check). Distinct from
-  /// `permissions` (host family gating) and `requiredPermissions`
-  /// (publisher-grant gating); see `vehicle-capabilities.ts` for the
-  /// three-way split.
-  ///
-  /// Closed enum — additions require a coordinated SDK + host +
-  /// backend bump (CI drift check enforces it). Empty default keeps
-  /// existing manifests valid: a row that declares nothing here is
-  /// treated as "runs anywhere" and only filtered by the `permissions`
-  /// / `requiredPermissions` gates.
-  requiredCapabilities: z
-    .array(z.enum(VEHICLE_CAPABILITIES as unknown as [VehicleCapability, ...VehicleCapability[]]))
-    .default([]),
 });
 
 export type MiniAppManifest = z.infer<typeof MiniAppManifestSchema>;
