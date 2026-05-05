@@ -10,7 +10,7 @@
   },
   "icon": "./icon.svg",
   "url": "https://miniapps.i99dash.app/pkg-launcher/",
-  "version": "0.5.23",
+  "version": "0.5.24",
   "minHostVersion": "1.5.0",
   "category": "lifestyle",
   "safeWhileDriving": false,
