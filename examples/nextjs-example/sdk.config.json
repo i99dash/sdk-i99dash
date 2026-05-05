@@ -1,6 +1,6 @@
 {
   "appRoot": "./out",
-  "distDir": "./out",
+  "distDir": "./dist",
   "mocksDir": "./mocks",
   "dev": {
     "port": 5173,
