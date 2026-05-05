@@ -124,15 +124,32 @@ async function loadPython() {
   return [...stripPythonComments(match[1]).matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 }
 
+/// Generic single-file list extractor. Used for the secondary
+/// taxonomies (DILINK_FAMILIES, SUB_TRIMS) that don't carry the same
+/// bit-position contract as VEHICLE_CAPABILITIES — order still
+/// matters for stability but the parser shape is the same.
+async function loadList(file, sdkRegex, mirrorRegex, lang) {
+  if (!existsSync(file)) fail(`expected mirror at ${file}.`);
+  const raw = await readFile(file, 'utf8');
+  const stripped = lang === 'python' ? stripPythonComments(raw) : stripLineComments(raw);
+  const match = stripped.match(mirrorRegex ?? sdkRegex);
+  if (!match) fail(`couldn't locate list in ${file}`);
+  // Both `'`- and `"`-quoted entries; some langs use one, some the
+  // other. Unioned regex picks both.
+  return [...match[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]);
+}
+
+// ── VEHICLE_CAPABILITIES (the original taxonomy — bit positions
+//    locked) ──
 const sdk = await loadSdk();
 const [dart, kotlin, python] = await Promise.all([loadDart(), loadKotlin(), loadPython()]);
 
-function compare(name, mirror) {
-  if (mirror.length !== sdk.length || mirror.some((c, i) => c !== sdk[i])) {
+function compare(name, mirror, sdkList = sdk) {
+  if (mirror.length !== sdkList.length || mirror.some((c, i) => c !== sdkList[i])) {
     console.error(`\n❌ ${name} drift\n`);
-    console.error(`   SDK   : ${JSON.stringify(sdk)}`);
+    console.error(`   SDK   : ${JSON.stringify(sdkList)}`);
     console.error(`   ${name.padEnd(6)}: ${JSON.stringify(mirror)}`);
-    console.error('\n   sync the mirror (preserve order — bit positions derive from index).\n');
+    console.error('\n   sync the mirror (preserve order — bit positions / enum order matter).\n');
     process.exit(1);
   }
 }
@@ -141,6 +158,42 @@ compare('Dart', dart);
 compare('Kotlin', kotlin);
 compare('Python', python);
 
+// ── DILINK_FAMILIES + SUB_TRIMS (closed enums shared with the
+//    Python backend; SDK is the source of truth — Kotlin / Dart
+//    sides use their own enums and don't participate in the strict
+//    drift check). ──
+
+const sdkDilink = [
+  ...(await readFile(SDK_FILE, 'utf8'))
+    .match(/DILINK_FAMILIES\s*=\s*\[([\s\S]*?)\]\s*as const/)[1]
+    .matchAll(/'([^']+)'/g),
+].map((m) => m[1]);
+
+const sdkSubTrim = [
+  ...stripLineComments(
+    (await readFile(SDK_FILE, 'utf8')).match(/SUB_TRIMS\s*=\s*\[([\s\S]*?)\]\s*as const/)[1],
+  ).matchAll(/'([^']+)'/g),
+].map((m) => m[1]);
+
+const pythonDilink = await loadList(
+  PY_FILE,
+  /DILINK_FAMILIES[^=]*=\s*\[\s*\n([\s\S]*?)\n\]/,
+  /DILINK_FAMILIES[^=]*=\s*\[\s*\n([\s\S]*?)\n\]/,
+  'python',
+);
+const pythonSubTrim = await loadList(
+  PY_FILE,
+  /SUB_TRIMS[^=]*=\s*\[\s*\n([\s\S]*?)\n\]/,
+  /SUB_TRIMS[^=]*=\s*\[\s*\n([\s\S]*?)\n\]/,
+  'python',
+);
+
+compare('Python.DILINK_FAMILIES', pythonDilink, sdkDilink);
+compare('Python.SUB_TRIMS', pythonSubTrim, sdkSubTrim);
+
 console.log(
-  `✓ vehicle-capability taxonomy in sync (${sdk.length} entries across SDK + Dart + Kotlin + Python).`,
+  `✓ taxonomies in sync — ` +
+    `caps=${sdk.length} (SDK+Dart+Kotlin+Python), ` +
+    `dilink=${sdkDilink.length} (SDK+Python), ` +
+    `subTrim=${sdkSubTrim.length} (SDK+Python).`,
 );

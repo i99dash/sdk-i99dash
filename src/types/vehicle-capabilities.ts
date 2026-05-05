@@ -106,56 +106,127 @@ const VehicleCapabilityEnum = z.enum(
   VEHICLE_CAPABILITIES as unknown as [VehicleCapability, ...VehicleCapability[]],
 );
 
-/// Backend payload for `GET /api/v1/vehicle-capabilities/{variantId}?fingerprint=...`.
-/// One row per (variantId, ROM fingerprint). Empirical truth — backend
-/// aggregates probes from real cars and pushes the union back to all
-/// hosts on the same fingerprint. The host falls back to its compiled-in
-/// VehicleProfile seed when the backend returns 404.
+/// DiLink generation. Mirror of `app/domain/vehicle_capabilities/
+/// constants.py` DILINK_FAMILIES and `android/.../car/CarIdentity.kt`
+/// `resolveDilinkFamily`. The ``unknown`` slot is the catch-all for
+/// non-BYD ROMs and dev runners; the Tier-5 unknown ProfileKey uses it.
+export const DILINK_FAMILIES = ['di5.0', 'di5.1', 'unknown'] as const;
+export type DilinkFamily = (typeof DILINK_FAMILIES)[number];
+
+/// Hardware sub-trims within a `variantId`. Splits "L5" into
+/// Flagship / Navigator / Ultra; collapses single-trim variants
+/// (L8, L7, HAN L) to ``base``. Mirror of the Python + Kotlin lists.
 ///
-/// `fingerprint` may be the empty string when the backend served the
-/// trim-only fallback row (no precise (variant, fingerprint) row yet
-/// for this ROM build). `capabilities` and `capabilityBits` are
-/// redundant on the wire — `capabilityBits` is the bitmask the host
-/// uses on the hot path; `capabilities` is the readable list for logs.
+/// **Append-only.** New trims add at the end; renames require a
+/// coordinated SDK + host + backend bump because every persisted
+/// ProfileKey carries this string.
+export const SUB_TRIMS = [
+  // L5 family (Di5.0).
+  'flagship',
+  'navigator',
+  'ultra',
+  'lidar',
+  // Single-trim fallback for variants with no real sub-trim split.
+  'base',
+] as const;
+export type SubTrim = (typeof SUB_TRIMS)[number];
+
+/// The four-tuple identity that uniquely keys a vehicle's capability
+/// row across the fleet. Sent as ``profileKey`` on every
+/// `/api/v1/vehicle-capabilities` and `/api/v1/car-feedback/correction`
+/// call.
+///
+/// Empty-string slots are valid wire values and represent **fallback
+/// aggregate** rows the backend walks server-side:
+///   * ``fingerprint == ""`` → sub-trim aggregate
+///   * ``subTrim == ""``     → trim aggregate
+///   * ``variantId == ""``   → DiLink-generation default
+///
+/// Hosts always send the precise four-tuple they ran on; the backend
+/// fans the probe into all four rows in one transaction so a
+/// fresh fingerprint inherits the union of every past probe.
+export const ProfileKeySchema = z
+  .object({
+    dilinkFamily: z.enum(DILINK_FAMILIES),
+    variantId: z.string().max(64).default(''),
+    /// Hardware sub-trim wire string. Validated against [SUB_TRIMS]
+    /// or the empty string (trim-level aggregate slot). Closed enum
+    /// keeps typos from entering the persistent table.
+    subTrim: z
+      .string()
+      .max(32)
+      .refine(
+        (v) => v === '' || (SUB_TRIMS as readonly string[]).includes(v),
+        (v) => ({ message: `unknown subTrim ${v!}` }),
+      )
+      .default(''),
+    /// `ro.build.fingerprint` exactly as Android reports it. Opaque
+    /// to the SDK; the backend uses it as the most-precise cache
+    /// key. Empty when reading an aggregate slot.
+    fingerprint: z.string().max(256).default(''),
+  })
+  .strict();
+
+export type ProfileKey = z.infer<typeof ProfileKeySchema>;
+
+/// Backend response for `GET /api/v1/vehicle-capabilities` — the
+/// merged capability snapshot for a [ProfileKey], with the resolution
+/// tier the backend served from.
+///
+/// `isFallback` + `fallbackReason` tell the client which tier of the
+/// 4-tier server-side fallback chain produced the row, so the UI can
+/// render a "best-effort on this car" hint when isFallback is true:
+///
+///   * ``"unknown_fingerprint"`` — sub-trim aggregate served (precise
+///     row not yet probed for this ROM).
+///   * ``"unknown_sub_trim"``    — trim aggregate served.
+///   * ``"unknown_variant"``     — DiLink-generation default served.
+///
+/// `capabilities` and `capabilityBits` carry the same data — the
+/// readable list for logs / UI, the bitmask for the hot-path subset
+/// check (one AND).
 export const VehicleCapabilitiesSnapshotSchema = z
   .object({
-    variantId: z.string().min(1).max(64),
-    /// `ro.build.fingerprint` exactly as Android reports it. Opaque
-    /// to the SDK; the backend uses it as the cache key. Empty string
-    /// when the backend served the trim-only fallback row.
+    dilinkFamily: z.enum(DILINK_FAMILIES),
+    variantId: z.string().max(64),
+    subTrim: z.string().max(32),
     fingerprint: z.string().max(256),
-    /// Stable enum subset on the wire — easier to reason about in
-    /// logs and across language boundaries. Redundant with
-    /// `capabilityBits`; consumers pick whichever fits.
     capabilities: z.array(VehicleCapabilityEnum),
-    /// Same content as `capabilities`, packed into a bitmask. Backend
-    /// stores the canonical state in this column; the host uses it
-    /// directly for the hot-path subset check (one AND).
     capabilityBits: z.number().int().nonnegative(),
     /// ISO-8601 timestamp the backend last updated this row.
     updatedAt: z.string().datetime(),
     /// Probe count this row aggregates. Higher = more confident.
-    /// Hosts use this only for telemetry; the union semantic is the
-    /// same regardless of count.
+    /// Hosts use this only for telemetry; the union semantic is
+    /// independent of count.
     probeCount: z.number().int().nonnegative(),
+    /// True when the resolver couldn't find a precise (fingerprint-
+    /// level) match. The catalog UI can render a soft "best-effort"
+    /// hint without changing functional behaviour.
+    isFallback: z.boolean().default(false),
+    /// Why the resolver fell back, or null on a precise hit. See the
+    /// schema docstring for the closed reason set.
+    fallbackReason: z
+      .enum(['unknown_fingerprint', 'unknown_sub_trim', 'unknown_variant', 'unknown_dilink'])
+      .nullable()
+      .default(null),
   })
   .strict();
 
 export type VehicleCapabilitiesSnapshot = z.infer<typeof VehicleCapabilitiesSnapshotSchema>;
 
 /// Probe result a host POSTs back to the backend after running its
-/// first-boot probe set. The backend folds this into the per-(variant,
-/// fingerprint) row — strictly additive, never decrementing, so a
-/// flaky probe on one car can never strip a capability another car
-/// proved.
+/// first-boot probe set. The backend folds this into all four
+/// ProfileKey rows in one transaction — strictly additive, never
+/// decrementing, so a flaky probe on one car can never strip a
+/// capability another car proved.
+///
+/// Hosts MUST send the precise [ProfileKey] they ran on (every slot
+/// populated). The backend writes the precise row AND the three
+/// aggregate slots so cars on fresh fingerprints / unknown sub-trims
+/// still inherit useful caps without waiting for their own probe.
 export const VehicleCapabilityProbeReportSchema = z
   .object({
-    variantId: z.string().min(1).max(64),
-    fingerprint: z.string().min(1).max(256),
-    /// Capabilities the probe empirically confirmed on this car. The
-    /// backend ORs them into the existing row; missing capabilities
-    /// here ≠ "this car lacks them" (a probe can fail for many
-    /// reasons), only "this run didn't prove them".
+    profileKey: ProfileKeySchema,
     confirmed: z.array(VehicleCapabilityEnum),
     /// Anonymised probe-version string so the backend can ignore
     /// reports from probe versions known to false-negative.

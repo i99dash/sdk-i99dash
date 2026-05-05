@@ -5,6 +5,9 @@ import {
   bitsFromCapabilities,
   capabilitiesFromBits,
   hasAllCapabilities,
+  DILINK_FAMILIES,
+  SUB_TRIMS,
+  ProfileKeySchema,
   VehicleCapabilitiesSnapshotSchema,
   VehicleCapabilityProbeReportSchema,
 } from '../vehicle-capabilities.js';
@@ -84,86 +87,167 @@ describe('hasAllCapabilities', () => {
   });
 });
 
-describe('VehicleCapabilitiesSnapshotSchema', () => {
-  it('parses a minimal valid payload', () => {
-    const parsed = VehicleCapabilitiesSnapshotSchema.parse({
-      variantId: 'l8',
-      fingerprint: 'BYD/leopard8/leopard8:13/Q0414/202512071900:user/release-keys',
-      capabilities: ['display.read', 'pkg.read'],
-      capabilityBits: 0b11,
-      updatedAt: '2026-05-04T12:00:00Z',
-      probeCount: 17,
+describe('ProfileKeySchema', () => {
+  it('parses a precise four-tuple', () => {
+    const pk = ProfileKeySchema.parse({
+      dilinkFamily: 'di5.0',
+      variantId: 'l5',
+      subTrim: 'flagship',
+      fingerprint: 'BYD/l5/l5:12/Q0311/202501132140:user/release-keys',
     });
-    expect(parsed.capabilities).toHaveLength(2);
-    expect(parsed.capabilityBits).toBe(0b11);
+    expect(pk.dilinkFamily).toBe('di5.0');
+    expect(pk.subTrim).toBe('flagship');
   });
 
-  it('accepts the trim-only fallback row (empty fingerprint)', () => {
-    /// Backend returns `fingerprint=""` when the precise (variant, fingerprint)
-    /// row hasn't been probed yet — the host gets the trim-aggregate
-    /// rather than a 404 for fresh ROM builds. See
-    /// backend-i99dash/app/domain/vehicle_capabilities/repository.py:get
-    /// for the fallback path.
+  it('defaults the three optional slots to empty strings (aggregate row)', () => {
+    const pk = ProfileKeySchema.parse({ dilinkFamily: 'di5.1' });
+    expect(pk.variantId).toBe('');
+    expect(pk.subTrim).toBe('');
+    expect(pk.fingerprint).toBe('');
+  });
+
+  it('rejects unknown dilinkFamily', () => {
+    expect(() => ProfileKeySchema.parse({ dilinkFamily: 'dishwasher' as never })).toThrow();
+  });
+
+  it('rejects unknown subTrim but allows empty', () => {
+    expect(() =>
+      ProfileKeySchema.parse({
+        dilinkFamily: 'di5.0',
+        variantId: 'l5',
+        subTrim: 'ultra-mega' as never,
+      }),
+    ).toThrow();
+    // Empty is the trim-aggregate slot — must stay valid.
+    expect(() =>
+      ProfileKeySchema.parse({
+        dilinkFamily: 'di5.0',
+        variantId: 'l5',
+        subTrim: '',
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe('VehicleCapabilitiesSnapshotSchema', () => {
+  const baseSnapshot = {
+    dilinkFamily: 'di5.1',
+    variantId: 'l8',
+    subTrim: 'base',
+    fingerprint: 'BYD/leopard8/leopard8:13/Q0414/202512071900:user/release-keys',
+    capabilities: ['display.read', 'pkg.read'],
+    capabilityBits: 0b11,
+    updatedAt: '2026-05-04T12:00:00Z',
+    probeCount: 17,
+  };
+
+  it('parses a precise snapshot (no fallback)', () => {
+    const parsed = VehicleCapabilitiesSnapshotSchema.parse(baseSnapshot);
+    expect(parsed.capabilityBits).toBe(0b11);
+    expect(parsed.isFallback).toBe(false);
+    expect(parsed.fallbackReason).toBeNull();
+  });
+
+  it('parses a tier-3 trim-aggregate snapshot with isFallback=true', () => {
     const parsed = VehicleCapabilitiesSnapshotSchema.parse({
-      variantId: 'l5',
+      ...baseSnapshot,
+      // Trim aggregate — sub-trim + fingerprint stripped by the
+      // server-side resolver.
+      subTrim: '',
       fingerprint: '',
-      capabilities: ['display.read'],
-      capabilityBits: 1,
-      updatedAt: '2026-05-04T12:00:00Z',
-      probeCount: 4,
+      isFallback: true,
+      fallbackReason: 'unknown_sub_trim',
     });
-    expect(parsed.fingerprint).toBe('');
+    expect(parsed.subTrim).toBe('');
+    expect(parsed.isFallback).toBe(true);
+    expect(parsed.fallbackReason).toBe('unknown_sub_trim');
+  });
+
+  it('rejects unknown fallbackReason strings', () => {
+    expect(() =>
+      VehicleCapabilitiesSnapshotSchema.parse({
+        ...baseSnapshot,
+        isFallback: true,
+        fallbackReason: 'unknown_planet' as never,
+      }),
+    ).toThrow();
   });
 
   it('rejects unknown capability strings', () => {
     expect(() =>
       VehicleCapabilitiesSnapshotSchema.parse({
-        variantId: 'l8',
-        fingerprint: 'fp',
+        ...baseSnapshot,
         capabilities: ['display.read', 'cluster.maglev' as never],
-        capabilityBits: 1,
-        updatedAt: '2026-05-04T12:00:00Z',
-        probeCount: 1,
       }),
     ).toThrow();
   });
 
-  it('rejects negative probeCount', () => {
+  it('rejects negative probeCount / capabilityBits', () => {
     expect(() =>
       VehicleCapabilitiesSnapshotSchema.parse({
-        variantId: 'l8',
-        fingerprint: 'fp',
-        capabilities: [],
-        capabilityBits: 0,
-        updatedAt: '2026-05-04T12:00:00Z',
+        ...baseSnapshot,
         probeCount: -1,
       }),
     ).toThrow();
-  });
-
-  it('rejects negative capabilityBits', () => {
     expect(() =>
       VehicleCapabilitiesSnapshotSchema.parse({
-        variantId: 'l8',
-        fingerprint: 'fp',
-        capabilities: [],
+        ...baseSnapshot,
         capabilityBits: -1,
-        updatedAt: '2026-05-04T12:00:00Z',
-        probeCount: 0,
       }),
     ).toThrow();
   });
 });
 
 describe('VehicleCapabilityProbeReportSchema', () => {
-  it('accepts a valid probe report', () => {
+  it('accepts a valid probe report nesting ProfileKey', () => {
     const parsed = VehicleCapabilityProbeReportSchema.parse({
-      variantId: 'l5',
-      fingerprint: 'BYD/leopard5/...',
+      profileKey: {
+        dilinkFamily: 'di5.0',
+        variantId: 'l5',
+        subTrim: 'navigator',
+        fingerprint: 'BYD/leopard5/...',
+      },
       confirmed: ['display.read', 'pkg.launch.dishare'],
       probeVersion: '1',
     });
+    expect(parsed.profileKey.subTrim).toBe('navigator');
     expect(parsed.confirmed).toContain('pkg.launch.dishare');
+  });
+
+  it('rejects probe reports with no profileKey', () => {
+    expect(() =>
+      VehicleCapabilityProbeReportSchema.parse({
+        // No profileKey field — old v1 shape.
+        variantId: 'l5',
+        fingerprint: 'fp',
+        confirmed: [],
+        probeVersion: '1',
+      } as never),
+    ).toThrow();
+  });
+
+  it('rejects unknown capability in confirmed list', () => {
+    expect(() =>
+      VehicleCapabilityProbeReportSchema.parse({
+        profileKey: { dilinkFamily: 'di5.0' },
+        confirmed: ['display.read', 'fly.car' as never],
+        probeVersion: '1',
+      }),
+    ).toThrow();
+  });
+});
+
+describe('DILINK_FAMILIES + SUB_TRIMS taxonomies', () => {
+  it('DILINK_FAMILIES covers the three documented values', () => {
+    expect(DILINK_FAMILIES).toContain('di5.0');
+    expect(DILINK_FAMILIES).toContain('di5.1');
+    expect(DILINK_FAMILIES).toContain('unknown');
+  });
+
+  it('SUB_TRIMS covers the user-confirmed L5 family + base', () => {
+    for (const expected of ['flagship', 'navigator', 'ultra', 'lidar', 'base'] as const) {
+      expect(SUB_TRIMS).toContain(expected);
+    }
   });
 });
 
