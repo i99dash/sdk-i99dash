@@ -46,6 +46,7 @@ const SDK_PUBLIC_EXPORTS = [
   'NotInsideHostError',
   'PermissionDeniedAggregator',
   'PkgController',
+  'RESERVED_OVERRIDE_LABELS',
   'SDKError',
   'SystemController',
   'SystemUnavailableError',

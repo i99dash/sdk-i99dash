@@ -118,8 +118,11 @@ describe('DisplayController', () => {
     }));
     const c = new DisplayController(bridge);
     const out = await c.list();
-    expect(out).toHaveLength(2);
-    expect(out[1]!.isCluster).toBe(true);
+    expect(out.displays).toHaveLength(2);
+    expect(out.displays[1]!.isCluster).toBe(true);
+    // No vehicle block in this fixture — the host can omit it (older
+    // builds, dev runner) and `list()` must still return cleanly.
+    expect(out.vehicle).toBeUndefined();
     expect(bridge.calls[0]!.familyId).toBe('display');
     expect(bridge.calls[0]!.op).toBe('list');
     expect(bridge.calls[0]!.idempotencyKey).toBeTruthy();

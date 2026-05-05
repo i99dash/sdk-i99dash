@@ -39,7 +39,15 @@ export {
   type CursorHandle,
   type CursorStyle,
 } from './cursor.js';
-export { DisplayController, type DisplaySnapshot, type DisplayEvent } from './display.js';
+export {
+  DisplayController,
+  type DisplaySnapshot,
+  type DisplayEvent,
+  type DisplayListResult,
+  type VehicleContext,
+  type ReservedOverrideLabel,
+  RESERVED_OVERRIDE_LABELS,
+} from './display.js';
 export {
   GestureController,
   type GestureLongPressOptions,
