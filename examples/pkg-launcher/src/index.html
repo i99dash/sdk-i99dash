@@ -4,6 +4,45 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Pkg Launcher</title>
+    <!--
+      Sentry browser SDK — sync-loaded so it's ready before any
+      code runs that might throw (the WebView's older Chromium on
+      Di5.0 trims has caught us out before; we want errors captured
+      regardless of which trim the app lands on). Per-trim filtering
+      uses the tags set after `display.list()` resolves below.
+      `crossorigin="anonymous"` so the host's WebView doesn't block
+      the script over a CORS misread on cached responses.
+    -->
+    <script
+      src="https://browser.sentry-cdn.com/9.50.0/bundle.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      // Init runs before the inline app module further below — any
+      // module-load syntax error in the app script lands here as a
+      // window error event and gets captured.
+      if (typeof Sentry !== 'undefined') {
+        Sentry.init({
+          dsn: 'https://576526869e4b743b9f8a6e687d2d45fe@o4505563001520128.ingest.us.sentry.io/4511281579819008',
+          release: 'pkg-launcher@0.7.0',
+          environment: 'production',
+          // Trim down auto-instrumentation: BrowserTracing and Replay
+          // are pointless inside a sandboxed mini-app WebView and
+          // burn quota on noise. Keep the GlobalHandlers (window
+          // error + unhandledrejection) and HttpContext.
+          integrations: function (defaults) {
+            return defaults.filter(function (i) {
+              return i.name !== 'BrowserTracing' && i.name !== 'Replay';
+            });
+          },
+          sendDefaultPii: false,
+        });
+        Sentry.getCurrentScope().setTags({
+          'app.id': 'pkg-launcher',
+          'app.version': '0.7.0',
+        });
+      }
+    </script>
     <style>
       :root {
         color-scheme: dark;
@@ -481,7 +520,7 @@
     <div class="app">
       <header class="header">
         <h1>Pkg Launcher</h1>
-        <span class="pill">v0.6.0</span>
+        <span class="pill">v0.7.0</span>
         <!-- Trim chip — populated from `display.list`'s `vehicle`
              field (host 1.6+). Hidden when the host doesn't supply
              one (older builds, dev runner). Knowing the trim helps
@@ -962,6 +1001,22 @@
           // alongside the displays. Older hosts return undefined —
           // we hide the trim pill in that case.
           state.vehicle = (r && r.vehicle) || null;
+          // Tag every captured Sentry event from this point on with
+          // the active trim's identity. Lets us slice errors by
+          // car.variant in Sentry — exactly the visibility we needed
+          // to diagnose the L5 vs L8 split. Cheap (one-shot setTags
+          // on the global scope), no PII (variantId is a model code,
+          // not a user identifier).
+          if (typeof Sentry !== 'undefined' && state.vehicle) {
+            var v = state.vehicle;
+            Sentry.getCurrentScope().setTags({
+              'car.variant': v.variantId || 'unknown',
+              'car.subTrim': v.subTrim || '',
+              'car.dilinkFamily': v.dilinkFamily || 'unknown',
+              'car.friendlyName': v.friendlyName || '',
+              'car.isFallback': String(v.isFallback === true),
+            });
+          }
           renderTrimPill();
         }
         function renderTrimPill() {
