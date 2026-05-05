@@ -481,7 +481,7 @@
     <div class="app">
       <header class="header">
         <h1>Pkg Launcher</h1>
-        <span class="pill">v0.5.33</span>
+        <span class="pill">v0.6.0</span>
         <!-- Trim chip — populated from `display.list`'s `vehicle`
              field (host 1.6+). Hidden when the host doesn't supply
              one (older builds, dev runner). Knowing the trim helps
@@ -576,11 +576,14 @@
               <span class="sub">Front-seat panel</span>
             </div>
 
-            <!-- Default Driver card → display 5 (`_1` overlay slot,
-                 verified physically visible on the Leopard 8 test
-                 car). Tapping `advanced` in the header reveals the
-                 other two slots for per-app experimentation. -->
-            <div class="target-card" data-role="cluster" data-display-id="5">
+            <!-- Default Driver card — no hardcoded display id. The
+                 resolver picks: cluster `_1` overlay where one
+                 exists (L8 / L5L), Driver-labeled passenger
+                 panel otherwise (Song Plus / L7 / HAN L). The
+                 advanced cards below carry explicit ids so power
+                 users can target a specific XDJA slot for testing
+                 without re-publishing. -->
+            <div class="target-card" data-role="cluster">
               <svg viewBox="0 0 160 80" aria-hidden="true">
                 <rect
                   x="20"
@@ -823,6 +826,55 @@
             return !d.hidden;
           });
         }
+        // Driver intent → concrete launch op + displayId. ONE
+        // decision point so per-trim variation lives entirely in
+        // display.list output (overrideLabel + role) instead of
+        // launcher logic. Adding a new trim that puts the
+        // driver-eyeline display somewhere new requires zero changes
+        // here — only the host's VehicleProfile gets touched.
+        //
+        // Resolution priority (cluster wins over panel because
+        // cluster IS the literal display the user means; the panel
+        // case is only viable when no real cluster exists):
+        //   1. Real cluster overlay (L8 / L5L XDJA `_1` slot).
+        //      → pkg.launch_cluster, isFallback=false.
+        //   2. Passenger display labeled "Driver" by the active
+        //      VehicleProfile (Song Plus, L7, HAN L). Reserved
+        //      label per /docs/api/i99dash/runtime/display-snapshot.
+        //      → pkg.launch (passenger scope), isFallback=true (hint
+        //         to surface a soft notice that we're not on a real
+        //         cluster).
+        //   3. Nothing reachable — return a typed reason the caller
+        //      can show to the user without inventing wording.
+        function resolveDriverTarget() {
+          var pool = visibleDisplays();
+          var cluster = pool.find(function (d) {
+            return roleOf(d) === 'cluster' && /_1$/.test(d.name || '');
+          });
+          if (cluster) {
+            return {
+              kind: 'cluster',
+              op: 'pkg.launch_cluster',
+              displayId: cluster.id,
+              isFallback: false,
+            };
+          }
+          var driverPanel = pool.find(function (d) {
+            return roleOf(d) === 'passenger' && d.overrideLabel === 'Driver';
+          });
+          if (driverPanel) {
+            return {
+              kind: 'panel',
+              op: 'pkg.launch',
+              displayId: driverPanel.id,
+              isFallback: true,
+            };
+          }
+          return {
+            kind: 'none',
+            reason: 'No driver-eyeline display on ' + trimLabel(),
+          };
+        }
         // ── Per-trim capability gating ───────────────────────
         // Host 1.7+ ships `vehicle.capabilities` (string list) and
         // `vehicle.capabilityBits` (packed) from `display.list`. Use
@@ -854,7 +906,15 @@
           return !!(state.vehicle && Array.isArray(state.vehicle.capabilities));
         }
         function clusterPixelAvailable() {
-          if (vehicleCapsKnown()) return hasVehicleCap('pkg.launch.cluster.pixel');
+          // Cap bit alone is necessary but not sufficient — Generic
+          // VehicleProfile lights pkg.launch.cluster.pixel on every
+          // car (it's the conservative default for unprofiled
+          // trims). Only when the picker can also resolve a cluster
+          // displayId is the launch actually executable. Mirrors
+          // the AND in passengerLaunchAvailable's pre-1.7 fallback.
+          if (vehicleCapsKnown()) {
+            return hasVehicleCap('pkg.launch.cluster.pixel') && pickByRole('cluster') != null;
+          }
           if (state.displays.length === 0) return true;
           return state.displays.some(function (d) {
             return roleOf(d) === 'cluster' && d.clusterAvailable !== false;
@@ -1065,17 +1125,24 @@
             if (role === 'ivi') {
               available = true;
             } else if (role === 'cluster') {
-              if (!clusterOk) {
-                available = false;
-                unavailableReason = clusterMissingReason();
-              } else if (explicitId != null) {
+              // Explicit-id cards (Driver 3 / Driver 4) target a
+              // specific XDJA slot — visibility check is just "does
+              // that id exist?". The default Driver card has no
+              // explicit id and is gated by resolveDriverTarget,
+              // which can land on either a cluster (L8 / L5L) or a
+              // Driver-labeled passenger panel (Song Plus / L7 /
+              // HAN L). When the resolver lands on the panel, the
+              // card stays available — the launch path will toast
+              // a soft fallback notice on success.
+              if (explicitId != null) {
                 available = visibleDisplays().some(function (d) {
                   return d.id === explicitId;
                 });
                 if (!available) unavailableReason = 'displayId=' + explicitId + ' not present';
               } else {
-                available = pickByRole('cluster') != null;
-                if (!available) unavailableReason = 'No cluster display present';
+                var t = resolveDriverTarget();
+                available = t.kind !== 'none';
+                if (!available) unavailableReason = t.reason;
               }
             } else if (role === 'passenger') {
               if (!passengerOk) {
@@ -1130,15 +1197,36 @@
         async function launchOnRole(pkg, role, explicitDisplayId) {
           var args = { packageName: pkg.packageName };
           var op = 'pkg.launch';
-          // Cluster targets MUST go through pkg.launch_cluster — the
-          // standard pkg.launch op rejects cluster displayIds since
-          // host 1.4.0 with a `role:requires_cluster_op` error.
+          // "Driver" intent → resolveDriverTarget() picks the right
+          // op + displayId for this trim:
+          //   * Real cluster overlay (L8 / L5L)        → pkg.launch_cluster.
+          //   * Driver-labeled passenger (Song Plus,    → pkg.launch.
+          //     L7, HAN L)
+          //   * No driver-eyeline display               → typed reason,
+          //     toasted verbatim.
+          // Explicit-id paths (Driver 3 / Driver 4 advanced testing
+          // cards in the picker) bypass the resolver — those exist
+          // specifically to address a particular cluster slot
+          // without the auto-pick.
           if (role === 'cluster') {
-            op = 'pkg.launch_cluster';
-            args.displayId = explicitDisplayId != null ? explicitDisplayId : pickByRole('cluster');
-            if (args.displayId == null) {
-              toast('No cluster display detected', 'err');
-              return;
+            if (explicitDisplayId != null) {
+              op = 'pkg.launch_cluster';
+              args.displayId = explicitDisplayId;
+            } else {
+              var t = resolveDriverTarget();
+              if (t.kind === 'none') {
+                toast(t.reason, 'err');
+                return;
+              }
+              op = t.op;
+              args.displayId = t.displayId;
+              // Fallback path (panel) — surface a soft notice so the
+              // user knows this isn't a real cluster on their trim.
+              // Same UX shape as vehicle.isFallback elsewhere; never
+              // changes functional behaviour.
+              if (t.isFallback) {
+                toast(pkg.label + ' → driver panel (no cluster on ' + trimLabel() + ')');
+              }
             }
           } else if (role === 'passenger') {
             // All-model passenger routing:
@@ -1311,10 +1399,22 @@
           padSub.textContent = 'displayId=' + state.padDisplayId + (slot ? ' · ' + slot : '');
         }
         $('#touchpadBtn').addEventListener('click', async function () {
-          // Hard-locked to the base XDJA cluster slot via
-          // pickByRole('cluster') — earlier "slot picker" UI is
-          // gone now that we know the base is the only one
-          // visible to the driver on this car.
+          // Touchpad only makes sense when remoting a real cluster
+          // (driver can't reach it physically). On trims where the
+          // "Driver" intent resolves to a passenger panel
+          // (Song Plus / L7 / HAN L), the user can touch the panel
+          // directly — no remote needed. Reject and explain instead
+          // of opening a pad that targets the wrong display.
+          var driver = resolveDriverTarget();
+          if (driver.kind !== 'cluster') {
+            toast(
+              driver.kind === 'panel'
+                ? 'Touchpad off — driver panel on ' + trimLabel() + ' is direct-touch'
+                : driver.reason,
+              'err',
+            );
+            return;
+          }
           state.padDisplayId = defaultPadId();
           if (state.padDisplayId == null) {
             toast('No cluster display detected', 'err');

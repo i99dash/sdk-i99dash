@@ -20,13 +20,15 @@ jobs:
     # expressions; env vars work.
     env:
       BACKEND_REPO_PAT: ${{ secrets.BACKEND_REPO_PAT }}
+      CAR_REPO_PAT: ${{ secrets.CAR_REPO_PAT }}
     steps:
       - uses: actions/checkout@v4
         with:
-          # Need backend-i99dash sibling for the category-slugs drift
-          # check. The SDK and backend repos are co-versioned; this
-          # checks out the backend's main branch alongside the SDK
-          # under test so the script can compare the two JSON files.
+          # Need sibling checkouts for cross-repo drift checks. The
+          # SDK is co-versioned with both the backend (capability /
+          # category taxonomies) and the host (driver-label
+          # contract); this checks them out alongside the SDK under
+          # test so the scripts can compare directly.
           path: i99dash-sdk
 
       # Cross-repo checkout needs a PAT with read access to the
@@ -41,6 +43,20 @@ jobs:
           repository: i99dev/backend-i99dash
           token: ${{ secrets.BACKEND_REPO_PAT }}
           path: backend-i99dash
+          fetch-depth: 1
+
+      # Same shape as backend-checkout — host repo is private; PAT
+      # gates the driver-label-contract drift check. When the PAT
+      # is missing the check skips with a warning; host-side CI
+      # owns the same invariant from the other direction.
+      - id: car-checkout
+        if: env.CAR_REPO_PAT != ''
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: i99dev/i99dash
+          token: ${{ secrets.CAR_REPO_PAT }}
+          path: car-i99dash
           fetch-depth: 1
 
       - uses: pnpm/action-setup@v4
@@ -92,6 +108,23 @@ jobs:
         if: steps.backend-checkout.outcome != 'success' || env.BACKEND_REPO_PAT == ''
         run: |
           echo "::warning::category-slugs drift check skipped — set BACKEND_REPO_PAT in repo secrets (PAT with read:contents on i99dev/backend-i99dash) to enable."
+
+      - name: Driver-label contract drift check
+        # Verifies every overrideLabel value the host's
+        # VehicleProfile.kt emits is in the SDK's
+        # RESERVED_OVERRIDE_LABELS enum. Skip if no host checkout —
+        # host-side CI owns the same invariant from the reverse
+        # direction.
+        if: steps.car-checkout.outcome == 'success'
+        working-directory: i99dash-sdk
+        env:
+          CAR_REPO_PATH: ${{ github.workspace }}/car-i99dash
+        run: pnpm check:driver-label-contract
+
+      - name: Driver-label contract check skipped (no host access)
+        if: steps.car-checkout.outcome != 'success' || env.CAR_REPO_PAT == ''
+        run: |
+          echo "::warning::driver-label contract check skipped — set CAR_REPO_PAT in repo secrets (PAT with read:contents on i99dev/i99dash) to enable."
 
       - name: Verify CLI binary builds cleanly
         working-directory: i99dash-sdk

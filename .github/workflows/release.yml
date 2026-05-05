@@ -56,6 +56,7 @@ jobs:
     # step-level `if`, env vars work.
     env:
       BACKEND_REPO_PAT: ${{ secrets.BACKEND_REPO_PAT }}
+      CAR_REPO_PAT: ${{ secrets.CAR_REPO_PAT }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,6 +73,19 @@ jobs:
           repository: i99dev/backend-i99dash
           token: ${{ secrets.BACKEND_REPO_PAT }}
           path: backend-i99dash
+          fetch-depth: 1
+
+      # Same shape — host repo for the driver-label contract drift
+      # check. Skipped without the PAT; host-side CI mirrors the
+      # invariant.
+      - id: car-checkout
+        if: env.CAR_REPO_PAT != ''
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: i99dev/i99dash
+          token: ${{ secrets.CAR_REPO_PAT }}
+          path: car-i99dash
           fetch-depth: 1
 
       - uses: pnpm/action-setup@v4
@@ -119,6 +133,18 @@ jobs:
         if: steps.backend-checkout.outcome != 'success' || env.BACKEND_REPO_PAT == ''
         run: |
           echo "::warning::category-slugs drift check skipped — set BACKEND_REPO_PAT in repo secrets to gate publishes on it."
+
+      - name: Driver-label contract drift check
+        if: steps.car-checkout.outcome == 'success'
+        working-directory: i99dash-sdk
+        env:
+          CAR_REPO_PATH: ${{ github.workspace }}/car-i99dash
+        run: pnpm check:driver-label-contract
+
+      - name: Driver-label contract check skipped (no host access)
+        if: steps.car-checkout.outcome != 'success' || env.CAR_REPO_PAT == ''
+        run: |
+          echo "::warning::driver-label contract check skipped — set CAR_REPO_PAT in repo secrets to gate publishes on it."
 
       - name: Verify CLI binary builds cleanly
         working-directory: i99dash-sdk
