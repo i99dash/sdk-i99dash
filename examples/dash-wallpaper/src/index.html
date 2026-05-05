@@ -4,6 +4,38 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Dash Wallpaper</title>
+    <!--
+      Sentry browser SDK — sync-loaded so it captures errors that
+      fire before any in-page script runs (module-load syntax errors
+      on older WebViews, unhandled rejections from the bridge dance).
+      Per-trim filtering uses the tags set after `display.list()`
+      resolves below.
+    -->
+    <script
+      src="https://browser.sentry-cdn.com/9.50.0/bundle.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script>
+      if (typeof Sentry !== 'undefined') {
+        Sentry.init({
+          dsn: 'https://576526869e4b743b9f8a6e687d2d45fe@o4505563001520128.ingest.us.sentry.io/4511281579819008',
+          release: 'dash-wallpaper@0.4.0',
+          environment: 'production',
+          // BrowserTracing + Replay add no value inside a sandboxed
+          // mini-app WebView and would burn quota on noise.
+          integrations: function (defaults) {
+            return defaults.filter(function (i) {
+              return i.name !== 'BrowserTracing' && i.name !== 'Replay';
+            });
+          },
+          sendDefaultPii: false,
+        });
+        Sentry.getCurrentScope().setTags({
+          'app.id': 'dash-wallpaper',
+          'app.version': '0.4.0',
+        });
+      }
+    </script>
     <style>
       :root {
         color-scheme: dark;
@@ -642,7 +674,20 @@
           // host 1.6+ ships {variantId, friendlyName, dilinkFamily}
           // alongside the displays. Older hosts return undefined —
           // we hide the trim pill in that case.
-          renderTrimPill((r && r.vehicle) || null);
+          var vehicle = (r && r.vehicle) || null;
+          // Tag every captured Sentry event from this point on with
+          // the active trim's identity. Lets us slice errors by
+          // car.variant in Sentry — identical pattern to pkg-launcher.
+          if (typeof Sentry !== 'undefined' && vehicle) {
+            Sentry.getCurrentScope().setTags({
+              'car.variant': vehicle.variantId || 'unknown',
+              'car.subTrim': vehicle.subTrim || '',
+              'car.dilinkFamily': vehicle.dilinkFamily || 'unknown',
+              'car.friendlyName': vehicle.friendlyName || '',
+              'car.isFallback': String(vehicle.isFallback === true),
+            });
+          }
+          renderTrimPill(vehicle);
           // Filter out shadow / duplicate displays the active
           // VehicleProfile flags (e.g. display 3 on L8 mirrors 5).
           // Older hosts (no `hidden` field) leave every entry through.
