@@ -10,7 +10,7 @@
   },
   "icon": "./icon.svg",
   "url": "https://miniapps.i99dash.app/cluster-remote/",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "minHostVersion": "1.2.0",
   "category": "developer",
   "safeWhileDriving": false,

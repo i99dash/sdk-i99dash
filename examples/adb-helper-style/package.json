@@ -1,6 +1,6 @@
 {
   "name": "i99dash-example-adb-helper-style",
-  "version": "0.0.0",
+  "version": "0.2.0",
   "private": true,
   "description": "AdbHelper-style privileged mini-app — manage the head-unit it runs on. Demonstrates the consolidated `i99dash` package's AdminClient.invoke() flow + cmdExec.* templates (pm.disable_user, sys.reboot, fs.ls, …).",
   "type": "module",
@@ -15,7 +15,7 @@
     "clean": "rimraf .next out .turbo"
   },
   "dependencies": {
-    "i99dash": "^1.1.0",
+    "i99dash": "^2.0.0",
     "next": "^15.5.15",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"

@@ -1,6 +1,6 @@
 {
   "name": "i99dash-example-cluster-hello-world",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "private": true,
   "description": "Phase A reference mini-app for the i99dash native-capability surface — enumerates displays, picks the cluster, opens a Presentation/overlay surface there with custom HTML.",
   "type": "module",
@@ -11,6 +11,6 @@
     "publish": "i99dash publish"
   },
   "devDependencies": {
-    "i99dash": "^1.1.0"
+    "i99dash": "^2.0.0"
   }
 }
