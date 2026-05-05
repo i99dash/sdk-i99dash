@@ -2,6 +2,18 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.1.0](https://github.com/i99dash/i99dash-sdk/compare/v2.0.0...v2.1.0) (2026-05-05)
+
+
+### Features
+
+* **examples:** Sentry trim-tagging for pkg-launcher + dash-wallpaper ([#36](https://github.com/i99dash/i99dash-sdk/issues/36)) ([8201e96](https://github.com/i99dash/i99dash-sdk/commit/8201e9627500ebabecb2c2ae66266379db59c91d))
+
+
+### Bug Fixes
+
+* **bridge:** unwrap host envelope in legacy direct-method get* calls ([#37](https://github.com/i99dash/i99dash-sdk/issues/37)) ([0f5888e](https://github.com/i99dash/i99dash-sdk/commit/0f5888ea21c858aa784086c114af3dc8276a56e2))
+
 ## [2.0.0](https://github.com/i99dash/i99dash-sdk/compare/v1.10.0...v2.0.0) (2026-05-05)
 
 
