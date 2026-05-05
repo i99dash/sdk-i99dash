@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.8.0](https://github.com/i99dash/i99dash-sdk/compare/v1.7.0...v1.8.0) (2026-05-05)
+
+
+### Features
+
+* vehicle-capability taxonomy + drift check ([#26](https://github.com/i99dash/i99dash-sdk/issues/26)) ([30053fd](https://github.com/i99dash/i99dash-sdk/commit/30053fd3fbfff58422e00016a7d4e915ecbb3262))
+
 ## [1.7.0](https://github.com/i99dash/i99dash-sdk/compare/v1.6.0...v1.7.0) (2026-05-03)
 
 
