@@ -2,6 +2,14 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.10.0](https://github.com/i99dash/i99dash-sdk/compare/v1.9.0...v1.10.0) (2026-05-05)
+
+
+### Features
+
+* **pkg-launcher:** per-trim capability gating + L5 DiShare passenger fallback ([a6b4825](https://github.com/i99dash/i99dash-sdk/commit/a6b4825d7d0970dc9be51270703a4157d31fe2e3))
+* **pkg:** targetRole='passenger' option for L5/L5U DiShare cast ([bc4cd85](https://github.com/i99dash/i99dash-sdk/commit/bc4cd8549917fdaf85e6d5c67400e563f2c35ec0))
+
 ## [1.9.0](https://github.com/i99dash/i99dash-sdk/compare/v1.8.0...v1.9.0) (2026-05-05)
 
 
