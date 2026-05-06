@@ -3,12 +3,23 @@
 Reference mini-app for the host's `pkg` family. Lists every
 installed launchable app and lets you:
 
-- Tap **▶** on any row → modal opens with three SVG cards
-  (**Head Unit / Passenger / Driver**); pick the screen and the
-  launch fires there.
+- **Tap a card** → launches on the screen this card was last sent
+  to. Cards show a small badge (`H` / `P` / `D`) telling you where
+  tap will land. First-time tap on a card opens the picker because
+  there's no saved target yet.
+- **Long-press a card (≈ 0.5 s)** → opens the screen-picker modal
+  with three SVG cards (**Head Unit / Passenger / Driver**) so you
+  can override / change target.
+- **Recently used strip** (top of the grid, hidden until first
+  launch) → MRU list of the last eight apps you launched. One tap
+  to relaunch, long-press for the picker. Persists across reloads.
+- **Search** — `/` focuses, `Esc` clears, `×` button clears.
 - **Clear driver screen** (bottom-left) → `pkg.stop` whatever the
   mini-app last put on the cluster, so XDJA's normal projection
-  (Huawei dashboard / amap) reclaims the surface.
+  (Huawei dashboard / amap) reclaims the surface. The button shows
+  the live count and disables when nothing's there. Cards currently
+  on the cluster pulse a green dot so you can see what Clear will
+  take down before pressing it.
 - **Open touchpad** (bottom-right) → modal trackpad shaped to the
   cluster (1920:720 aspect). Drag = `cursor.move` on the cluster;
   release = `gesture.tap` at the corresponding cluster coordinates.

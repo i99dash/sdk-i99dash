@@ -18,13 +18,21 @@
       crossorigin="anonymous"
     ></script>
     <script>
+      // Single source of truth for this bundle's version. Keep in
+      // sync with manifest.json + package.json on every release —
+      // referenced by Sentry release/tag AND the header pill below.
+      // (Pre-0.8.1, this string was hardcoded in three places that
+      // drifted from manifest version on every bump. Don't repeat
+      // that pattern.)
+      window.PKG_LAUNCHER_VERSION = '0.10.1';
+
       // Init runs before the inline app module further below — any
       // module-load syntax error in the app script lands here as a
       // window error event and gets captured.
       if (typeof Sentry !== 'undefined') {
         Sentry.init({
           dsn: 'https://576526869e4b743b9f8a6e687d2d45fe@o4505563001520128.ingest.us.sentry.io/4511281579819008',
-          release: 'pkg-launcher@0.7.0',
+          release: 'pkg-launcher@' + window.PKG_LAUNCHER_VERSION,
           environment: 'production',
           // Trim down auto-instrumentation: BrowserTracing and Replay
           // are pointless inside a sandboxed mini-app WebView and
@@ -39,7 +47,7 @@
         });
         Sentry.getCurrentScope().setTags({
           'app.id': 'pkg-launcher',
-          'app.version': '0.7.0',
+          'app.version': window.PKG_LAUNCHER_VERSION,
         });
       }
     </script>
@@ -137,10 +145,11 @@
       /* Search */
       .search {
         padding: 4px 20px 12px;
+        position: relative;
       }
       .search input {
         width: 100%;
-        padding: 10px 14px;
+        padding: 10px 38px 10px 14px;
         background: var(--bg-1);
         border: 1px solid var(--border);
         border-radius: 10px;
@@ -154,26 +163,69 @@
       .search input:focus {
         border-color: var(--accent);
       }
+      /* Inline ✕ to flush the filter without going for the keyboard.
+         Hidden until there's text — keeps the input clean by default. */
+      .search-clear {
+        position: absolute;
+        right: 26px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        color: var(--text-2);
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 999px;
+        display: none;
+      }
+      .search-clear.show {
+        display: inline-block;
+      }
+      .search-clear:hover {
+        background: var(--bg-2);
+        color: var(--text-0);
+      }
+      .kbd-hint {
+        position: absolute;
+        right: 60px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 10px;
+        color: var(--text-2);
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 6px;
+        pointer-events: none;
+      }
+      .kbd-hint.hide {
+        display: none;
+      }
 
-      /* Card grid — each tile IS the launch target; tapping
-       * anywhere on the card opens the screen-picker modal. No
-       * separate ▶ button: the card has one job. */
+      /* Card grid — phone-home-screen layout. Each tile IS the
+       * launch target; tapping launches on the saved last-target,
+       * long-press opens the screen-picker modal. No package-name
+       * line (reverse-domain text was developer noise; the icon +
+       * label do the recognition work). */
       .grid {
         overflow-y: auto;
-        padding: 0 20px 20px;
+        padding: 4px 20px 24px;
         display: grid;
         /* auto-fill so the layout adapts to whatever width the
          * embedding host gives us — passenger panel (1920×720),
-         * IVI portrait, IVI landscape. Cards stay readable down
-         * to ~140px. */
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 12px;
+         * IVI portrait, IVI landscape. 160 px floor leaves room
+         * for the larger 72 px icon + one-line label without the
+         * label crashing into the next column. */
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 14px;
       }
       .card {
-        background: var(--bg-1);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 14px 12px 12px;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 16px;
+        padding: 14px 10px 12px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -187,42 +239,63 @@
         min-width: 0;
       }
       .card:hover {
-        border-color: var(--border-strong);
-        background: var(--bg-2);
+        background: var(--bg-1);
+        border-color: var(--border);
       }
       .card:active {
-        transform: scale(0.97);
+        transform: scale(0.96);
       }
       .card .icon {
-        width: 56px;
-        height: 56px;
-        background: var(--bg-2);
-        border-radius: 14px;
+        position: relative;
+        width: 72px;
+        height: 72px;
+        background: var(--bg-1);
+        border-radius: 18px;
         display: flex;
         align-items: center;
         justify-content: center;
         color: var(--accent);
-        font-size: 22px;
+        font-size: 28px;
         font-weight: 600;
+        overflow: hidden;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      }
+      /* First-letter fallback. Renders behind the lazy `<img>` so
+         it shows immediately on cards entering the viewport, then
+         the PNG fades in once the bridge resolves. */
+      .card .icon-fallback {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .card .icon-img {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0;
+        transition: opacity 180ms ease-out;
+      }
+      .card .icon-img.loaded {
+        opacity: 1;
       }
       .card .name {
-        font-size: 13px;
+        font-size: 12.5px;
         font-weight: 500;
-        line-height: 1.25;
-        max-width: 100%;
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        word-break: break-word;
-      }
-      .card .pkg {
-        font-size: 10px;
-        color: var(--text-2);
+        line-height: 1.2;
         max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        color: var(--text-0);
+      }
+      /* `.pkg` is no longer rendered — kept as a class so the rule
+         doesn't break if any caller still injects one; display:none
+         is a defensive belt-and-braces guard. */
+      .card .pkg {
+        display: none;
       }
       .empty {
         grid-column: 1 / -1;
@@ -230,6 +303,205 @@
         text-align: center;
         color: var(--text-2);
         font-size: 13px;
+      }
+
+      /* Recents strip — last-launched apps in MRU order, capped at 8.
+         Sits above the full grid so a return user is one tap away
+         from whatever they last did. Persisted to localStorage so it
+         survives WebView reloads (host garbage-collects the page on
+         backgrounding for some trims). Hidden when empty. */
+      .recents-section {
+        padding: 0 20px 12px;
+      }
+      .recents-header {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-2);
+        margin: 2px 0 8px;
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .recents-header .hint {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 400;
+        font-size: 10px;
+      }
+      .recents-row {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        padding-bottom: 4px;
+      }
+      .recents-row::-webkit-scrollbar {
+        height: 4px;
+      }
+      .recents-row::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+      }
+      .recent-card {
+        flex: 0 0 96px;
+        background: var(--bg-1);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        text-align: center;
+        transition:
+          transform 0.08s,
+          border-color 0.12s,
+          background 0.12s;
+      }
+      .recent-card:hover {
+        border-color: var(--border-strong);
+        background: var(--bg-2);
+      }
+      .recent-card:active {
+        transform: scale(0.97);
+      }
+      .recent-card .icon {
+        position: relative;
+        width: 40px;
+        height: 40px;
+        background: var(--bg-2);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 16px;
+        overflow: hidden;
+      }
+      .recent-card .icon-fallback {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .recent-card .icon-img {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0;
+        transition: opacity 180ms ease-out;
+      }
+      .recent-card .icon-img.loaded {
+        opacity: 1;
+      }
+      .recent-card .name {
+        font-size: 11px;
+        line-height: 1.2;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* Section header above the full grid — pairs with the recents
+         label so the two zones read as Recently used / All apps
+         instead of one undifferentiated wall of icons. */
+      .grid-header {
+        padding: 0 20px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-2);
+      }
+
+      /* Last-target badge: bottom-right overlay on the icon. Tells
+         the user where a tap will send this app. Single-letter so
+         it renders identically across every WebView Chromium version
+         on Di5.0 / Di5.1 — no emoji rendering surprises. */
+      .target-badge {
+        position: absolute;
+        bottom: -3px;
+        right: -3px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--bg-0);
+        color: var(--text-0);
+        border: 2px solid var(--bg-1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+      .target-badge.cluster {
+        background: var(--warn);
+        color: var(--bg-0);
+      }
+      .target-badge.passenger {
+        background: var(--accent-2);
+        color: var(--bg-0);
+      }
+      .target-badge.ivi {
+        background: var(--accent);
+        color: var(--bg-0);
+      }
+
+      /* Running-on-cluster pulse: top-left of the icon. Visual link
+         to "Clear driver screen" — the user can see what's currently
+         occupying the cluster before pressing Clear. */
+      .running-dot {
+        position: absolute;
+        top: -3px;
+        left: -3px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #22c55e;
+        box-shadow:
+          0 0 0 2px var(--bg-1),
+          0 0 8px rgba(34, 197, 94, 0.6);
+        animation: pulseDot 1.6s ease-in-out infinite;
+      }
+      @keyframes pulseDot {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.18);
+          opacity: 0.7;
+        }
+      }
+
+      /* Disabled action button — Clear with no cluster launches is
+         a no-op, so it dims out instead of looking interactive. */
+      .actions button[disabled] {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .actions button .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        margin-left: 6px;
+        border-radius: 9px;
+        background: rgba(244, 162, 97, 0.22);
+        color: var(--warn);
+        font-size: 11px;
+        font-weight: 600;
       }
 
       /* Action bar */
@@ -339,6 +611,58 @@
         color: var(--text-1);
         font-size: 12px;
       }
+      /* App-icon block on the picker header. Same content-addressed
+         cache the grid uses; cache hits skip the bridge entirely so
+         opening the picker stays cheap. */
+      .modal-icon {
+        position: relative;
+        width: 44px;
+        height: 44px;
+        flex: 0 0 44px;
+        border-radius: 11px;
+        background: var(--bg-2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 18px;
+        overflow: hidden;
+      }
+      .modal-icon .icon-fallback {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-icon .icon-img {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0;
+        transition: opacity 180ms ease-out;
+      }
+      .modal-icon .icon-img.loaded {
+        opacity: 1;
+      }
+      .modal-title-block {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .modal-title-block h2 {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .modal-title-block .sub {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       .modal-header .close {
         margin-left: auto;
         background: transparent;
@@ -396,6 +720,33 @@
       }
 
       /* Touchpad */
+      /* 0.7.5: per-display chip row in the modal header so the
+         tester can retarget the pad without closing the modal. */
+      .pad-target-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0 16px 12px;
+        border-bottom: 1px solid var(--line-1);
+      }
+      .pad-target-chip {
+        padding: 6px 12px;
+        border-radius: 20px;
+        background: var(--bg-2);
+        border: 1px solid var(--line-1);
+        color: var(--text-1);
+        font-size: 13px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .pad-target-chip:hover {
+        background: var(--bg-3, #1a2030);
+      }
+      .pad-target-chip.on {
+        background: rgba(88, 199, 255, 0.18);
+        border-color: #58c7ff;
+        color: #cfeaff;
+      }
       .pad-wrap {
         display: flex;
         flex-direction: column;
@@ -447,8 +798,11 @@
         margin-left: -9px;
         margin-top: -9px;
         border-radius: 50%;
-        background: rgba(88, 199, 255, 0.5);
-        border: 2px solid var(--accent);
+        /* 0.7.7: green dot for high-visibility on-car testing.
+           Easier to spot at a glance than the previous accent-cyan. */
+        background: rgba(72, 220, 124, 0.55);
+        border: 2px solid #22c55e;
+        box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.55);
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.12s;
@@ -520,7 +874,7 @@
     <div class="app">
       <header class="header">
         <h1>Pkg Launcher</h1>
-        <span class="pill">v0.7.0</span>
+        <span class="pill" id="appVersionPill">v?</span>
         <!-- Trim chip — populated from `display.list`'s `vehicle`
              field (host 1.6+). Hidden when the host doesn't supply
              one (older builds, dev runner). Knowing the trim helps
@@ -532,15 +886,41 @@
       </header>
 
       <div class="search">
-        <input id="search" type="text" placeholder="Search installed apps…" />
+        <input
+          id="search"
+          type="text"
+          placeholder="Search installed apps…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <span class="kbd-hint" id="kbdHint">/</span>
+        <button id="searchClear" class="search-clear" type="button" aria-label="Clear search">
+          ×
+        </button>
       </div>
+
+      <!-- Recently launched (≤ 8, MRU). Hidden until first launch.
+           Tap a chip to relaunch on its remembered target; long-press
+           to pick a different screen via the modal. -->
+      <div class="recents-section" id="recentsSection" hidden>
+        <div class="recents-header">
+          <span>Recently used</span>
+          <span class="hint">tap to relaunch · long-press for screen picker</span>
+        </div>
+        <div class="recents-row" id="recentsRow"></div>
+      </div>
+
+      <div class="grid-header" id="gridHeader" hidden>All apps</div>
 
       <div class="grid" id="list">
         <div class="empty">Loading…</div>
       </div>
 
       <div class="actions">
-        <button id="clearBtn" type="button"><span>↺</span><span>Clear driver screen</span></button>
+        <button id="clearBtn" type="button" disabled title="Nothing on the driver screen yet">
+          <span>↺</span><span>Clear driver screen</span>
+          <span class="badge" id="clearBadge" hidden>0</span>
+        </button>
         <button id="touchpadBtn" type="button" class="primary">
           <span>◐</span><span>Open touchpad</span>
         </button>
@@ -554,8 +934,18 @@
     <div class="modal" id="targetModal" role="dialog" aria-modal="true">
       <div class="modal-card">
         <div class="modal-header">
-          <h2 id="targetTitle">Choose a screen</h2>
-          <span class="sub" id="targetSub"></span>
+          <!-- Pinned app icon next to the title so the user can see
+               WHAT they're about to launch, not just its label. Filled
+               by openTargetPicker from the same iconCache the grid
+               uses, so cache hits skip the bridge. -->
+          <div class="modal-icon" id="targetIcon" aria-hidden="true">
+            <span class="icon-fallback" id="targetIconFallback">?</span>
+            <img class="icon-img" id="targetIconImg" alt="" />
+          </div>
+          <div class="modal-title-block">
+            <h2 id="targetTitle">Choose a screen</h2>
+            <span class="sub" id="targetSub"></span>
+          </div>
           <button
             class="adv-toggle"
             id="advToggle"
@@ -653,58 +1043,49 @@
               <span class="sub">cluster · behind wheel</span>
             </div>
 
+            <div class="target-card advanced" data-role="cluster" data-display-id="0">
+              <svg viewBox="0 0 160 80" aria-hidden="true">
+                <rect x="20" y="28" width="120" height="32" rx="4" fill="#0a0e16" stroke="#58c7ff" stroke-width="1.5"/>
+                <text x="80" y="49" text-anchor="middle" fill="#58c7ff" font-size="14" font-weight="700">0</text>
+              </svg>
+              <span class="caption">Display 0</span>
+              <span class="sub">main IVI · explicit id</span>
+            </div>
+
+            <div class="target-card advanced" data-role="cluster" data-display-id="2">
+              <svg viewBox="0 0 160 80" aria-hidden="true">
+                <rect x="20" y="28" width="120" height="32" rx="4" fill="#0a0e16" stroke="#7adb8e" stroke-width="1.5"/>
+                <text x="80" y="49" text-anchor="middle" fill="#7adb8e" font-size="14" font-weight="700">2</text>
+              </svg>
+              <span class="caption">Display 2</span>
+              <span class="sub">FSE / aux</span>
+            </div>
+
             <div class="target-card advanced" data-role="cluster" data-display-id="3">
               <svg viewBox="0 0 160 80" aria-hidden="true">
-                <rect
-                  x="20"
-                  y="28"
-                  width="120"
-                  height="32"
-                  rx="4"
-                  fill="#0a0e16"
-                  stroke="#f4a261"
-                  stroke-width="1.5"
-                />
-                <text
-                  x="80"
-                  y="49"
-                  text-anchor="middle"
-                  fill="#f4a261"
-                  font-size="14"
-                  font-weight="700"
-                >
-                  3
-                </text>
+                <rect x="20" y="28" width="120" height="32" rx="4" fill="#0a0e16" stroke="#f4a261" stroke-width="1.5"/>
+                <text x="80" y="49" text-anchor="middle" fill="#f4a261" font-size="14" font-weight="700">3</text>
               </svg>
-              <span class="caption">Driver 3</span>
-              <span class="sub">base slot</span>
+              <span class="caption">Display 3</span>
+              <span class="sub">XDJA base</span>
             </div>
 
             <div class="target-card advanced" data-role="cluster" data-display-id="4">
               <svg viewBox="0 0 160 80" aria-hidden="true">
-                <rect
-                  x="20"
-                  y="28"
-                  width="120"
-                  height="32"
-                  rx="4"
-                  fill="#0a0e16"
-                  stroke="#f4a261"
-                  stroke-width="1.5"
-                />
-                <text
-                  x="80"
-                  y="49"
-                  text-anchor="middle"
-                  fill="#f4a261"
-                  font-size="14"
-                  font-weight="700"
-                >
-                  4
-                </text>
+                <rect x="20" y="28" width="120" height="32" rx="4" fill="#0a0e16" stroke="#f4a261" stroke-width="1.5"/>
+                <text x="80" y="49" text-anchor="middle" fill="#f4a261" font-size="14" font-weight="700">4</text>
               </svg>
-              <span class="caption">Driver 4</span>
-              <span class="sub">_0 primary</span>
+              <span class="caption">Display 4</span>
+              <span class="sub">XDJA _0</span>
+            </div>
+
+            <div class="target-card advanced" data-role="cluster" data-display-id="5">
+              <svg viewBox="0 0 160 80" aria-hidden="true">
+                <rect x="20" y="28" width="120" height="32" rx="4" fill="#0a0e16" stroke="#f4a261" stroke-width="1.5"/>
+                <text x="80" y="49" text-anchor="middle" fill="#f4a261" font-size="14" font-weight="700">5</text>
+              </svg>
+              <span class="caption">Display 5</span>
+              <span class="sub">XDJA _1 · driver</span>
             </div>
           </div>
         </div>
@@ -714,7 +1095,10 @@
     <!-- Touchpad modal: cluster-remote-style trackpad. Drag to move
          the cursor overlay on the cluster, release to tap. The pad
          surface is aspect-locked to the cluster (1920:720) so the
-         user has a 1:1 mental map of where they are. -->
+         user has a 1:1 mental map of where they are.
+         0.7.5+: header carries a chip row that retargets the pad to
+         any displayId on the fly. Lets on-car testers verify which
+         displays actually receive cursor.attach + cursor.move pixels. -->
     <div class="modal" id="touchpadModal" role="dialog" aria-modal="true">
       <div class="modal-card">
         <div class="modal-header">
@@ -722,6 +1106,7 @@
           <span class="sub" id="padSub">cluster mirror</span>
           <button class="close" data-close="touchpad">×</button>
         </div>
+        <div class="pad-target-row" id="padTargetRow"></div>
         <div class="modal-body">
           <div class="pad-wrap" id="padPane">
             <div class="pad-info">
@@ -741,6 +1126,13 @@
 
     <script type="module">
       (async function () {
+        // Stamp the version pill from the single source of truth so
+        // there's never a hardcoded version drift between manifest
+        // and the rendered header. (Pre-0.8.1 had three hardcoded
+        // "0.7.0" strings that drifted across 6+ version bumps.)
+        var versionPill = document.getElementById('appVersionPill');
+        if (versionPill) versionPill.textContent = 'v' + window.PKG_LAUNCHER_VERSION;
+
         var ATTEMPTS = 0;
         // Wait for the host bridge to inject `window.flutter_inappwebview`.
         // The host typically races the page load by 10–80ms; bound the
@@ -791,7 +1183,87 @@
           //     user noticed: "touch pad uses wrong id for screen".
           clusterLaunches: new Map(),
           padAttached: false, // cursor.attach state for the touchpad
+          // 0.9.0 UX: MRU list of packages the user has launched
+          // (most recent first, capped at RECENTS_MAX). Persisted so
+          // the strip survives WebView reloads — older trims tear the
+          // page down on backgrounding and we don't want recents to
+          // evaporate every time the user switches apps.
+          recents: [],
+          // 0.9.0 UX: packageName → {role, displayId} of the LAST
+          // target the user picked for this package. A subsequent
+          // tap on the card relaunches on the same target without
+          // reopening the picker. Long-press (550 ms) always opens
+          // the picker so the user can override.
+          lastTargets: {},
         };
+
+        // ── Persistence (0.9.0) ──────────────────────────────
+        // Two small bits of state live in localStorage so the
+        // launcher feels stateful across reloads. Both are advisory
+        // only — losing them just regresses to "first-time UX",
+        // never breaks a launch. Wrapped in try/catch because some
+        // host embeddings disable storage in incognito-style modes.
+        var RECENTS_KEY = 'pkg-launcher.recents.v1';
+        var TARGETS_KEY = 'pkg-launcher.lastTargets.v1';
+        var TIP_KEY = 'pkg-launcher.tipShown.v1';
+        var RECENTS_MAX = 8;
+        function loadPersistence() {
+          try {
+            var r = localStorage.getItem(RECENTS_KEY);
+            if (r) {
+              var arr = JSON.parse(r);
+              if (Array.isArray(arr)) state.recents = arr.slice(0, RECENTS_MAX);
+            }
+          } catch (_) {}
+          try {
+            var t = localStorage.getItem(TARGETS_KEY);
+            if (t) {
+              var obj = JSON.parse(t);
+              if (obj && typeof obj === 'object') state.lastTargets = obj;
+            }
+          } catch (_) {}
+        }
+        function saveRecents() {
+          try {
+            localStorage.setItem(RECENTS_KEY, JSON.stringify(state.recents));
+          } catch (_) {}
+        }
+        function saveTargets() {
+          try {
+            localStorage.setItem(TARGETS_KEY, JSON.stringify(state.lastTargets));
+          } catch (_) {}
+        }
+        function rememberLaunch(pkgName, role, displayId) {
+          state.recents = [pkgName]
+            .concat(
+              state.recents.filter(function (n) {
+                return n !== pkgName;
+              }),
+            )
+            .slice(0, RECENTS_MAX);
+          state.lastTargets[pkgName] = {
+            role: role,
+            displayId: displayId == null ? null : displayId,
+          };
+          saveRecents();
+          saveTargets();
+          renderRecents();
+          updateTargetBadgeFor(pkgName);
+        }
+        // True when a saved last-target is still launchable on the
+        // current car. A tap-to-direct-launch path consults this so
+        // we fall back to the picker (instead of toasting an error)
+        // when the user moves between trims with the same install.
+        function targetStillReachable(t) {
+          if (!t) return false;
+          if (t.role === 'ivi') return true;
+          if (t.role === 'cluster') {
+            if (t.displayId != null) return true;
+            return clusterPixelAvailable();
+          }
+          if (t.role === 'passenger') return passengerLaunchAvailable();
+          return false;
+        }
 
         // ── DOM helpers ──────────────────────────────────────
         function $(s) {
@@ -1070,51 +1542,375 @@
           });
         }
 
+        // ── Icon cache (content-addressed) ───────────────────────
+        // Keyed on the same `iconHash` shipped in `pkg.list`, so the
+        // host's session cache and the mini-app's session cache both
+        // resolve the same key. Cache hit → bridge skipped entirely.
+        // Cache miss → one `pkg.icon` call → entry persists for the
+        // page's lifetime. `versionCode` bump on the host changes the
+        // hash, naturally invalidating the entry.
+        var iconCache = new Map(); // iconHash → 'data:image/png;base64,...'
+        var iconInflight = new Map(); // iconHash → Promise<dataUrl>
+
+        async function fetchIconDataUrl(packageName, iconHash) {
+          if (!iconHash) return null;
+          if (iconCache.has(iconHash)) return iconCache.get(iconHash);
+          if (iconInflight.has(iconHash)) return iconInflight.get(iconHash);
+          var p = (async function () {
+            try {
+              var r = await call('pkg.icon', { packageName: packageName });
+              if (r && r.ok && r.pngBase64) {
+                var dataUrl = 'data:image/png;base64,' + r.pngBase64;
+                iconCache.set(iconHash, dataUrl);
+                return dataUrl;
+              }
+            } catch (_) {
+              // Pre-1.7 hosts (no `pkg.icon` method) reject the call;
+              // graceful degradation falls back to the first-letter
+              // circle. No retry — we'd just fail the same way.
+            }
+            // Negative cache: store a sentinel so we don't keep
+            // hammering the bridge for an icon that won't come.
+            iconCache.set(iconHash, null);
+            return null;
+          })();
+          iconInflight.set(iconHash, p);
+          p.finally(function () {
+            iconInflight.delete(iconHash);
+          });
+          return p;
+        }
+
+        // Lazy icon loading. IntersectionObserver fires only for cards
+        // entering the viewport, so a 100-app launcher doesn't spam
+        // the bridge with 100 calls on render. Once an entry is
+        // observed we kick off the fetch and unobserve — a card that
+        // scrolls back into view hits the iconCache directly.
+        var iconObserver = null;
+        function getIconObserver() {
+          if (iconObserver) return iconObserver;
+          if (typeof IntersectionObserver === 'undefined') return null;
+          iconObserver = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (!entry.isIntersecting) return;
+                var img = entry.target;
+                iconObserver.unobserve(img);
+                var pkg = img.dataset.pkg;
+                var hash = img.dataset.iconHash;
+                fetchIconDataUrl(pkg, hash).then(function (dataUrl) {
+                  if (dataUrl) {
+                    img.src = dataUrl;
+                    img.classList.add('loaded');
+                  }
+                  // No-result: keep the first-letter fallback the
+                  // surrounding `<span>` already renders.
+                });
+              });
+            },
+            { rootMargin: '200px 0px' }, // pre-warm cards within 200px of viewport
+          );
+          return iconObserver;
+        }
+
+        // Build the icon-cell innards (fallback letter + lazy <img>
+         //  + optional running-dot + optional last-target badge). Pulled
+         //  out so the full grid and the recents strip render the same
+         //  decorations without duplicating the cache-hit branching.
+        function buildIconCell(p, opts) {
+          opts = opts || {};
+          var initial =
+            (p.label || p.packageName || '?')
+              .replace(/[^a-zA-Z0-9]/g, '')
+              .slice(0, 1)
+              .toUpperCase() || '?';
+          var cachedSrc = p.iconHash ? iconCache.get(p.iconHash) : null;
+          var inner;
+          if (cachedSrc) {
+            inner =
+              '<span class="icon-fallback" aria-hidden="true">' +
+              escapeHtml(initial) +
+              '</span>' +
+              '<img class="icon-img loaded" alt="" src="' +
+              cachedSrc +
+              '">';
+          } else if (p.iconHash) {
+            inner =
+              '<span class="icon-fallback" aria-hidden="true">' +
+              escapeHtml(initial) +
+              '</span>' +
+              '<img class="icon-img" alt="" data-pkg="' +
+              escapeHtml(p.packageName) +
+              '" data-icon-hash="' +
+              escapeHtml(p.iconHash) +
+              '">';
+          } else {
+            inner = escapeHtml(initial);
+          }
+          var running =
+            opts.showRunning && state.clusterLaunches.has(p.packageName)
+              ? '<span class="running-dot" aria-hidden="true"></span>'
+              : '';
+          var badge = '';
+          if (opts.showTargetBadge) {
+            var t = state.lastTargets[p.packageName];
+            if (t) {
+              badge =
+                '<span class="target-badge ' +
+                t.role +
+                '" aria-hidden="true" title="Tap launches on ' +
+                targetLabel(t.role) +
+                '">' +
+                targetLetter(t.role) +
+                '</span>';
+            }
+          }
+          return '<div class="icon">' + running + inner + badge + '</div>';
+        }
+        function targetLetter(role) {
+          return role === 'cluster' ? 'D' : role === 'passenger' ? 'P' : 'H';
+        }
+        function targetLabel(role) {
+          return role === 'cluster'
+            ? 'Driver'
+            : role === 'passenger'
+              ? 'Passenger'
+              : 'Head Unit';
+        }
+
+        // Smart-tap: tap → direct-launch on the saved target if we
+        // have one and it's still reachable; otherwise fall back to
+        // the picker. Long-press (550 ms, ≤ 12 px wobble) ALWAYS
+        // opens the picker so the user can change target. Mirrors the
+        // mobile pattern users already know from launchers, calendar
+        // events, and chat reactions.
+        function attachLaunchHandlers(el, p) {
+          var pressTimer = null;
+          var pressFired = false;
+          var startX = 0;
+          var startY = 0;
+          var maxDelta = 0;
+          el.addEventListener('pointerdown', function (e) {
+            pressFired = false;
+            maxDelta = 0;
+            startX = e.clientX;
+            startY = e.clientY;
+            if (pressTimer != null) clearTimeout(pressTimer);
+            pressTimer = setTimeout(function () {
+              pressFired = true;
+              pressTimer = null;
+              openTargetPicker(p);
+            }, 550);
+          });
+          el.addEventListener('pointermove', function (e) {
+            var d = Math.hypot(e.clientX - startX, e.clientY - startY);
+            if (d > maxDelta) maxDelta = d;
+            // Cancel the long-press timer once motion crosses the
+            // bubble; tap-vs-scroll is decided in smartTap below by
+            // looking at the cumulative maxDelta, not just at this
+            // tick — so a brief overshoot doesn't sneak past the
+            // timer and still fire as a tap on release.
+            if (pressTimer != null && d > 12) {
+              clearTimeout(pressTimer);
+              pressTimer = null;
+            }
+          });
+          function cancelPress() {
+            if (pressTimer != null) {
+              clearTimeout(pressTimer);
+              pressTimer = null;
+            }
+          }
+          el.addEventListener('pointerup', cancelPress);
+          el.addEventListener('pointercancel', cancelPress);
+          el.addEventListener('pointerleave', cancelPress);
+
+          function smartTap() {
+            if (pressFired) {
+              pressFired = false;
+              return;
+            }
+            // Cards in the recents strip live inside a horizontally
+            // scrollable row; a drag-to-scroll lifts inside the
+            // origin card and would synthesize a click. Treat any
+            // gesture that travelled > 12 px as scroll, not tap.
+            if (maxDelta > 12) return;
+            var t = state.lastTargets[p.packageName];
+            if (t && targetStillReachable(t)) {
+              launchOnRole(p, t.role, t.displayId);
+              // Educate first-time-after-update users that the tap
+              // bypassed the picker. One-shot, so it doesn't nag.
+              try {
+                if (!localStorage.getItem(TIP_KEY)) {
+                  toast('Long-press a card to send to a different screen');
+                  localStorage.setItem(TIP_KEY, '1');
+                }
+              } catch (_) {}
+            } else {
+              openTargetPicker(p);
+            }
+          }
+          el.addEventListener('click', smartTap);
+          el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              smartTap();
+            }
+          });
+        }
+
+        // Update the running-dot on already-rendered cards without
+        // re-drawing the whole grid. Cheap (one querySelectorAll) and
+        // doesn't reset the IntersectionObserver state for icons that
+        // were mid-load.
+        function updateRunningStates() {
+          document.querySelectorAll('[data-package]').forEach(function (el) {
+            var name = el.getAttribute('data-package');
+            var iconBox = el.querySelector('.icon');
+            if (!iconBox) return;
+            var hasDot = !!iconBox.querySelector('.running-dot');
+            var shouldHave = state.clusterLaunches.has(name);
+            if (shouldHave && !hasDot) {
+              var dot = document.createElement('span');
+              dot.className = 'running-dot';
+              dot.setAttribute('aria-hidden', 'true');
+              iconBox.insertBefore(dot, iconBox.firstChild);
+            } else if (!shouldHave && hasDot) {
+              iconBox.querySelector('.running-dot').remove();
+            }
+          });
+        }
+        // Replace the bottom-right target badge for a single package
+        // after a launch. Touches every rendered occurrence (full
+        // grid + recents strip) so both stay in sync.
+        function updateTargetBadgeFor(pkgName) {
+          var t = state.lastTargets[pkgName];
+          document.querySelectorAll('[data-package]').forEach(function (el) {
+            if (el.getAttribute('data-package') !== pkgName) return;
+            var iconBox = el.querySelector('.icon');
+            if (!iconBox) return;
+            var existing = iconBox.querySelector('.target-badge');
+            if (existing) existing.remove();
+            if (!t) return;
+            // Recents-strip cards opt out of the badge (the strip is
+            // already an MRU signal; doubling the chrome makes the
+            // 96-px chip look noisy).
+            if (el.classList.contains('recent-card')) return;
+            var badge = document.createElement('span');
+            badge.className = 'target-badge ' + t.role;
+            badge.setAttribute('aria-hidden', 'true');
+            badge.title = 'Tap launches on ' + targetLabel(t.role);
+            badge.textContent = targetLetter(t.role);
+            iconBox.appendChild(badge);
+          });
+        }
+
+        // Recents strip — re-render from state.recents. Filtered by
+        // the current package list so an uninstalled-since-last-launch
+        // chip doesn't ghost. Hidden when empty (incl. fresh install).
+        function renderRecents() {
+          var section = $('#recentsSection');
+          var row = $('#recentsRow');
+          if (!section || !row) return;
+          var pkgIndex = {};
+          state.packages.forEach(function (p) {
+            pkgIndex[p.packageName] = p;
+          });
+          var visible = state.recents.filter(function (name) {
+            return pkgIndex[name];
+          });
+          if (visible.length === 0) {
+            section.hidden = true;
+            row.innerHTML = '';
+            return;
+          }
+          section.hidden = false;
+          row.innerHTML = '';
+          var observer = getIconObserver();
+          visible.forEach(function (name) {
+            var p = pkgIndex[name];
+            var card = document.createElement('div');
+            card.className = 'recent-card';
+            card.setAttribute('role', 'button');
+            card.setAttribute('data-package', p.packageName);
+            card.setAttribute('aria-label', 'Relaunch ' + (p.label || p.packageName));
+            card.tabIndex = 0;
+            card.innerHTML =
+              buildIconCell(p, { showRunning: true, showTargetBadge: false }) +
+              '<div class="name">' +
+              escapeHtml(p.label || p.packageName) +
+              '</div>';
+            attachLaunchHandlers(card, p);
+            row.appendChild(card);
+            var cachedSrc = p.iconHash ? iconCache.get(p.iconHash) : null;
+            if (observer && p.iconHash && !cachedSrc) {
+              var img = card.querySelector('.icon-img:not(.loaded)');
+              if (img) observer.observe(img);
+            }
+          });
+        }
+
+        // Reflect cluster-launch count on the Clear button. Disabled
+        // + tooltip when zero so the user doesn't tap a no-op; badge
+        // shows the count so they know what Clear will tear down.
+        function updateClearButton() {
+          var btn = $('#clearBtn');
+          var badge = $('#clearBadge');
+          if (!btn) return;
+          var n = state.clusterLaunches.size;
+          if (n === 0) {
+            btn.setAttribute('disabled', '');
+            btn.title = 'Nothing on the driver screen yet';
+          } else {
+            btn.removeAttribute('disabled');
+            btn.title =
+              'Stop ' + n + ' app' + (n === 1 ? '' : 's') + ' on the driver screen';
+          }
+          if (badge) {
+            badge.textContent = String(n);
+            badge.hidden = n === 0;
+          }
+        }
+
         function renderPackages() {
           var host = $('#list');
+          var header = $('#gridHeader');
           var matches = filteredPackages();
           $('#count').textContent = matches.length;
           if (matches.length === 0) {
+            if (header) header.hidden = true;
             host.innerHTML = '<div class="empty">No apps match.</div>';
             return;
           }
+          if (header) header.hidden = state.recents.length === 0;
           host.innerHTML = '';
+          var observer = getIconObserver();
           matches.forEach(function (p) {
-            var initial =
-              (p.label || p.packageName || '?')
-                .replace(/[^a-zA-Z0-9]/g, '')
-                .slice(0, 1)
-                .toUpperCase() || '?';
             var card = document.createElement('div');
             card.className = 'card';
-            // Whole card is the touch target; aria-label so screen
-            // readers announce the launch action without needing a
-            // visible "▶" button.
             card.setAttribute('role', 'button');
+            card.setAttribute('data-package', p.packageName);
             card.setAttribute('aria-label', 'Launch ' + (p.label || p.packageName));
             card.tabIndex = 0;
+            // 0.10.0 redesign: phone-home-screen tile — icon + label.
+            // The reverse-domain `packageName` line was developer
+            // noise and now lives only in the picker modal subtitle
+            // for callers that still want to verify which package
+            // they're launching.
             card.innerHTML =
-              '<div class="icon">' +
-              escapeHtml(initial) +
-              '</div>' +
-              '<div class="name">' +
-              escapeHtml(p.label || p.packageName) +
-              '</div>' +
-              '<div class="pkg">' +
+              buildIconCell(p, { showRunning: true, showTargetBadge: true }) +
+              '<div class="name" title="' +
               escapeHtml(p.packageName) +
+              '">' +
+              escapeHtml(p.label || p.packageName) +
               '</div>';
-            card.addEventListener('click', function () {
-              openTargetPicker(p);
-            });
-            // Keyboard parity — Enter / Space activate the card the
-            // same way a tap does. Cheap a11y win, no extra surface.
-            card.addEventListener('keydown', function (e) {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                openTargetPicker(p);
-              }
-            });
+            attachLaunchHandlers(card, p);
             host.appendChild(card);
+            var cachedSrc = p.iconHash ? iconCache.get(p.iconHash) : null;
+            if (observer && p.iconHash && !cachedSrc) {
+              var img = card.querySelector('.icon-img:not(.loaded)');
+              if (img) observer.observe(img);
+            }
           });
         }
 
@@ -1125,12 +1921,17 @@
         // (display 5) — useful when a specific app lands better on
         // a different XDJA slot than the verified default.
         var ADV_KEY = 'pkg-launcher.advanced-targets.v1';
-        var advancedSlots = false;
+        // 0.7.4: default advanced=ON for empirical-display testing.
+        // The explicit-id cards (Display 0/2/3/4/5) let on-car testers
+        // verify which numeric displays actually deliver pixels per
+        // trim. Users who don't want them can still toggle off.
+        var advancedSlots = true;
         try {
-          advancedSlots = localStorage.getItem(ADV_KEY) === '1';
+          var stored = localStorage.getItem(ADV_KEY);
+          if (stored != null) advancedSlots = stored === '1';
         } catch (_) {
           // localStorage may be unavailable in some embeddings; fall
-          // through with default off.
+          // through with the default-on.
         }
         function applyAdvanced() {
           var grid = $('#targetGrid');
@@ -1155,6 +1956,41 @@
           state.pendingLaunch = pkg;
           $('#targetTitle').textContent = pkg.label || pkg.packageName;
           $('#targetSub').textContent = pkg.packageName;
+          // 0.9.1: paint the pinned icon. Reuse the grid's iconCache —
+          // a cache hit lights it up instantly; a miss schedules the
+          // same `pkg.icon` fetch the grid uses, then back-fills here
+          // when the dataUrl resolves. The fallback letter shows in the
+          // meantime so the header never looks empty.
+          var fallback = $('#targetIconFallback');
+          var img = $('#targetIconImg');
+          if (fallback) {
+            var initial =
+              (pkg.label || pkg.packageName || '?')
+                .replace(/[^a-zA-Z0-9]/g, '')
+                .slice(0, 1)
+                .toUpperCase() || '?';
+            fallback.textContent = initial;
+          }
+          if (img) {
+            img.classList.remove('loaded');
+            img.removeAttribute('src');
+            var cachedSrc = pkg.iconHash ? iconCache.get(pkg.iconHash) : null;
+            if (cachedSrc) {
+              img.src = cachedSrc;
+              img.classList.add('loaded');
+            } else if (pkg.iconHash) {
+              var pendingHash = pkg.iconHash;
+              fetchIconDataUrl(pkg.packageName, pkg.iconHash).then(function (dataUrl) {
+                // Guard against the user closing the picker (or opening
+                // it on a different app) before the fetch resolves —
+                // don't paint someone else's icon over the new header.
+                if (!dataUrl) return;
+                if (!state.pendingLaunch || state.pendingLaunch.iconHash !== pendingHash) return;
+                img.src = dataUrl;
+                img.classList.add('loaded');
+              });
+            }
+          }
           applyAdvanced();
           // Disable cards whose role isn't reachable on this car. IVI
           // is always on. Driver / Passenger gate on the active
@@ -1178,20 +2014,15 @@
             if (role === 'ivi') {
               available = true;
             } else if (role === 'cluster') {
-              // Explicit-id cards (Driver 3 / Driver 4) target a
-              // specific XDJA slot — visibility check is just "does
-              // that id exist?". The default Driver card has no
-              // explicit id and is gated by resolveDriverTarget,
-              // which can land on either a cluster (L8 / L5L) or a
-              // Driver-labeled passenger panel (Song Plus / L7 /
-              // HAN L). When the resolver lands on the panel, the
-              // card stays available — the launch path will toast
-              // a soft fallback notice on success.
+              // Explicit-id cards (Display 0 / 2 / 3 / 4 / 5) target a
+              // specific displayId. 0.7.4: always-enabled so on-car
+              // testers can empirically verify which numeric displays
+              // actually deliver pixels per trim — even if the active
+              // profile says the cap isn't granted. This is a testing
+              // surface; the host's own checks still gate at launch
+              // time, so a cap-less attempt fails cleanly.
               if (explicitId != null) {
-                available = visibleDisplays().some(function (d) {
-                  return d.id === explicitId;
-                });
-                if (!available) unavailableReason = 'displayId=' + explicitId + ' not present';
+                available = true;
               } else {
                 var t = resolveDriverTarget();
                 available = t.kind !== 'none';
@@ -1341,7 +2172,17 @@
             // package to a different slot updates its displayId.
             if (role === 'cluster') {
               state.clusterLaunches.set(pkg.packageName, args.displayId);
+              updateRunningStates();
+              updateClearButton();
             }
+            // 0.9.0 UX: persist {role, displayId} so a future tap on
+            // this card relaunches on the same target without reopening
+            // the picker. Skip on a failed launch above (return earlier).
+            rememberLaunch(
+              pkg.packageName,
+              role,
+              args.displayId == null ? null : args.displayId,
+            );
           } catch (e) {
             toast('launch failed: ' + (e && e.message), 'err');
           }
@@ -1389,6 +2230,8 @@
               'err',
             );
           }
+          updateRunningStates();
+          updateClearButton();
         });
 
         // ── Touchpad modal ───────────────────────────────────
@@ -1452,35 +2295,96 @@
           padSub.textContent = 'displayId=' + state.padDisplayId + (slot ? ' · ' + slot : '');
         }
         $('#touchpadBtn').addEventListener('click', async function () {
-          // Touchpad only makes sense when remoting a real cluster
-          // (driver can't reach it physically). On trims where the
-          // "Driver" intent resolves to a passenger panel
-          // (Song Plus / L7 / HAN L), the user can touch the panel
-          // directly — no remote needed. Reject and explain instead
-          // of opening a pad that targets the wrong display.
-          var driver = resolveDriverTarget();
-          if (driver.kind !== 'cluster') {
-            toast(
-              driver.kind === 'panel'
-                ? 'Touchpad off — driver panel on ' + trimLabel() + ' is direct-touch'
-                : driver.reason,
-              'err',
-            );
-            return;
+          // 0.7.4: testing mode — touchpad always opens. The legacy
+          // gate refused to open when the driver target wasn't a
+          // cluster (Song Plus / L7 / HAN L treat driver as the
+          // passenger panel; user can touch it directly). For
+          // empirical-display testing the tester wants to point the
+          // pad at any displayId on demand.
+          //
+          // Resolution order for the initial pad target:
+          //   1. cluster role via pickByRole — works on L8 / L5L
+          //   2. first non-default display from display.list — any
+          //      addressable secondary surface
+          //   3. default 0 fallback (the IVI itself; pad will land
+          //      on the same screen the user is touching, which is
+          //      a degenerate but observable case)
+          // The slot pill in the modal header lets the user override.
+          var resolved = pickByRole('cluster');
+          if (resolved == null) {
+            var nonDefault = state.displays.find(function (d) {
+              return !d.isDefault;
+            });
+            resolved = nonDefault ? nonDefault.id : 0;
+            // Soft toast so the tester knows we fell back from the
+            // expected cluster path — useful triage signal.
+            toast('Touchpad on display ' + resolved + ' (no cluster resolved)', 'info');
           }
-          state.padDisplayId = defaultPadId();
-          if (state.padDisplayId == null) {
-            toast('No cluster display detected', 'err');
-            return;
-          }
+          state.padDisplayId = resolved;
           state.padAttached = false;
           refreshPadSub();
+          renderPadTargetRow();
           padStatus.textContent = 'Idle';
           $('#touchpadModal').classList.add('show');
           // Lazy-attach the cursor on first touch — saves a round-
           // trip if the user opens the modal and closes it without
           // touching.
         });
+
+        // 0.7.5: per-display chip row in the touchpad modal header.
+        // Renders one chip per known display from display.list();
+        // tapping a chip retargets the pad to that displayId, detaches
+        // the previous cursor binding, and re-attaches lazily on the
+        // next pad touch. Lets on-car testers verify which displays
+        // actually receive cursor.attach + cursor.move pixels without
+        // closing the modal between tries.
+        function renderPadTargetRow() {
+          var row = $('#padTargetRow');
+          if (!row) return;
+          row.innerHTML = '';
+          var displays = state.displays || [];
+          if (displays.length === 0) {
+            row.innerHTML =
+              '<span class="pad-info" style="padding:8px 12px">No displays reported</span>';
+            return;
+          }
+          displays.forEach(function (d) {
+            var chip = document.createElement('div');
+            chip.className =
+              'pad-target-chip' + (d.id === state.padDisplayId ? ' on' : '');
+            var lbl =
+              d.overrideLabel ||
+              (d.isDefault ? 'Head Unit' : null) ||
+              (d.name && d.name.toLowerCase() === 'fse' ? 'FSE' : null) ||
+              (d.isCluster ? 'Cluster' : null) ||
+              d.name ||
+              'Display';
+            chip.textContent = '[' + d.id + '] ' + lbl;
+            var hints = [];
+            if (d.hidden) hints.push('flagged hidden by profile');
+            if (d.isDefault) hints.push('default IVI');
+            if (hints.length) chip.title = hints.join(' · ');
+            chip.addEventListener('click', async function () {
+              if (d.id === state.padDisplayId) return;
+              var prev = state.padDisplayId;
+              state.padDisplayId = d.id;
+              // Best-effort detach on the previous target so we don't
+              // pile up cursor overlays. Some hosts implement
+              // cursor.detach as no-op and a fresh attach replaces;
+              // catching the rejection covers either shape.
+              if (state.padAttached && prev != null) {
+                try {
+                  await call('cursor.detach', { targetDisplayId: prev });
+                } catch (_) {}
+              }
+              state.padAttached = false;
+              refreshPadSub();
+              renderPadTargetRow();
+              padStatus.textContent = 'Retargeted to displayId=' + d.id;
+            });
+            row.appendChild(chip);
+          });
+        }
         document.addEventListener('click', function (e) {
           if (e.target.closest('[data-close="touchpad"]')) {
             $('#touchpadModal').classList.remove('show');
@@ -1488,6 +2392,37 @@
             // shortly. Cursor stays attached for the session and
             // the host garbage-collects it on session end.
           }
+        });
+
+        // 0.10.1: backdrop click dismisses an open modal. Tracked
+        // pair (pointerdown + click both on the backdrop element)
+        // guards against the iOS / Android pattern where a drag
+        // that started on the modal-card and lifted on the
+        // backdrop synthesizes a click whose target is the
+        // backdrop — without this guard a near-edge slider drag
+        // would silently close the picker.
+        var modalDownTarget = null;
+        document.addEventListener('pointerdown', function (e) {
+          var modal = e.target.closest('.modal.show');
+          // Down on backdrop directly (not on a child) records the
+          // candidate close-on-release. Down on modal-card or any
+          // descendant clears it.
+          modalDownTarget = (modal && e.target === modal) ? modal : null;
+        });
+        document.addEventListener('click', function (e) {
+          if (
+            modalDownTarget &&
+            e.target === modalDownTarget &&
+            e.target.classList.contains('modal') &&
+            e.target.classList.contains('show')
+          ) {
+            e.target.classList.remove('show');
+            if (e.target.id === 'targetModal') state.pendingLaunch = null;
+            // Touchpad keeps cursor.attach — same posture as the ✕
+            // close path above. Re-opening reuses the existing
+            // attach without a fresh round-trip.
+          }
+          modalDownTarget = null;
         });
 
         // Map a pad pointer event to a (0..1, 0..1) fraction of the
@@ -1868,14 +2803,72 @@
         });
 
         // ── Search ───────────────────────────────────────────
-        $('#search').addEventListener('input', function (e) {
+        var searchInput = $('#search');
+        var searchClear = $('#searchClear');
+        var kbdHint = $('#kbdHint');
+        // Hide the "/" hint as soon as there's a value — the slot is
+        // small and the ✕ is more useful at that point.
+        function reflectSearchAffordances() {
+          var has = state.filter.length > 0;
+          if (searchClear) searchClear.classList.toggle('show', has);
+          if (kbdHint) kbdHint.classList.toggle('hide', has);
+        }
+        searchInput.addEventListener('input', function (e) {
           state.filter = e.target.value;
+          reflectSearchAffordances();
           renderPackages();
+        });
+        if (searchClear) {
+          searchClear.addEventListener('click', function () {
+            searchInput.value = '';
+            state.filter = '';
+            reflectSearchAffordances();
+            renderPackages();
+            searchInput.focus();
+          });
+        }
+        // Global keydown:
+        //   * "/"   focuses search (skip when an input already has it).
+        //   * Esc   clears the filter, or blurs, or closes a modal.
+        // We deliberately don't auto-focus the input on boot — that
+        // would pop the soft keyboard the moment the launcher opens
+        // on a head unit, hiding the grid. Press "/" to opt in.
+        document.addEventListener('keydown', function (e) {
+          var openModal = document.querySelector('.modal.show');
+          if (openModal && e.key === 'Escape') {
+            openModal.classList.remove('show');
+            if (openModal.id === 'targetModal') state.pendingLaunch = null;
+            e.preventDefault();
+            return;
+          }
+          var inField =
+            e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+          if (e.key === '/' && !inField && !openModal) {
+            e.preventDefault();
+            searchInput.focus();
+            try {
+              searchInput.select();
+            } catch (_) {}
+            return;
+          }
+          if (e.key === 'Escape' && e.target === searchInput) {
+            if (state.filter) {
+              searchInput.value = '';
+              state.filter = '';
+              reflectSearchAffordances();
+              renderPackages();
+            } else {
+              searchInput.blur();
+            }
+          }
         });
 
         // ── Boot ─────────────────────────────────────────────
+        loadPersistence();
+        updateClearButton();
         await loadDisplays();
         await loadPackages();
+        renderRecents();
       })().catch(function (e) {
         document.getElementById('list').innerHTML =
           '<div class="empty">init failed: ' + (e && e.message) + '</div>';
