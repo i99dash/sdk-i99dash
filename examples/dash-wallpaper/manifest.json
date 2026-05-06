@@ -10,7 +10,7 @@
   },
   "icon": "./icon.svg",
   "url": "https://miniapps.i99dash.app/dash-wallpaper/",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "minHostVersion": "1.2.0",
   "category": "lifestyle",
   "safeWhileDriving": false,

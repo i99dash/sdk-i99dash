@@ -10,7 +10,7 @@
   },
   "icon": "./assets/icon.svg",
   "url": "https://miniapps.i99dash.app/adb-helper/",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "minHostVersion": "0.0.2",
   "category": "developer",
   "safeWhileDriving": false

@@ -1,6 +1,6 @@
 {
   "name": "i99dash-example-nextjs",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Next.js 15 example for the consolidated `i99dash` package. Demonstrates getContext, callApi, EN/AR + RTL, and driving-state awareness, all runnable offline via the dev-server (`i99dash dev`).",
   "type": "module",
@@ -15,7 +15,7 @@
     "clean": "rimraf .next out .turbo"
   },
   "dependencies": {
-    "i99dash": "^2.0.0",
+    "i99dash": "^3.0.0",
     "next": "^15.5.15",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
