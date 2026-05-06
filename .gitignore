@@ -7,3 +7,12 @@ coverage/
 .vitest-cache/
 .pnpm-debug.log
 .npmrc.local
+
+  node_modules/
+  .next/
+  out/
+  .turbo/
+  *.log
+  .DS_Store
+  next-env.d.ts
+  tsconfig.tsbuildinfo
