@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [3.1.0](https://github.com/i99dash/i99dash-sdk/compare/v3.0.0...v3.1.0) (2026-05-07)
+
+
+### Features
+
+* **types:** rename `vin` → `bydDeviceId` across the public surface (`CarStatus`, `AdminClientContext`). The legacy `vin` field still works during the v3.x line and is populated alongside `bydDeviceId` so existing consumers keep functioning unchanged. `CarStatusSchema` accepts payloads with either name on input and prefers `bydDeviceId` when both are present. The renamed field carries BYD's media/cloud device handle (`bydXXXX...`), NOT the ISO 3779 chassis VIN — see `MIGRATING.md` for the rationale and a before/after migration. The `vin` alias is `@deprecated` and will be removed in v4.0.
+
 ## [3.0.0](https://github.com/i99dash/i99dash-sdk/compare/v2.1.0...v3.0.0) (2026-05-05)
 
 

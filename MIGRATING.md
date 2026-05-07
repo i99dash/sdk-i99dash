@@ -1,3 +1,71 @@
+# Migrating to v3.1 — `vin` → `bydDeviceId`
+
+`3.1.0` renames the public `vin` field to `bydDeviceId` across the SDK's
+type surface. The change is **non-breaking**: the old name keeps working
+for the entire v3.x line. Existing code that reads `status.vin` continues
+to work unchanged — the SDK populates both fields with the same value.
+The legacy alias becomes a hard error in `4.0`, so migrate when convenient.
+
+## Why?
+
+The value labeled `vin` in this SDK is BYD's media/cloud device handle
+(format: `bydXXXX...`, derived at the factory from the head unit's
+hardware fingerprint and exposed via `persist.sys.cloud.last_vin`). It is
+**not** the ISO 3779 chassis VIN that police, insurers, and DMV systems
+use — the chassis VIN lives on the CAN bus behind a platform-signed
+service binder and isn't reachable by mini-apps.
+
+Calling our field `vin` made even our own engineers think we were
+collecting the regulated identifier. Renaming to `bydDeviceId` makes the
+distinction explicit in code and in IDE autocomplete.
+
+## What changed
+
+`CarStatus` (the live status snapshot pushed via `client.car.onStatusChange`):
+
+```diff
+ const status: CarStatus = await client.car.readStatus();
+-console.log(status.vin);          // still works, IDE flags as @deprecated
++console.log(status.bydDeviceId);  // canonical from v3.1 onwards
+```
+
+`CarStatusSchema` accepts payloads with either field name on input.
+Hosts that haven't migrated their wire format yet (still emitting `vin`)
+keep working. Hosts that emit `byd_device_id` work too. When both are
+present, `bydDeviceId` wins.
+
+`AdminClientContext` (the context the host injects when constructing
+`AdminClient`):
+
+```diff
+ AdminClient.fromWindow({
+-  context: { appId: 'diag', vin: 'bydE51DB8F5AE5E3713' },
++  context: { appId: 'diag', bydDeviceId: 'bydE51DB8F5AE5E3713' },
+   catalog: snapshot,
+ });
+```
+
+Either field is accepted at construction. The host's dispatcher carries
+the authoritative tuple anyway, so this surface is informational —
+either name resolves identically.
+
+## Timeline
+
+- **v3.1.0** (this release): both names work. Old name is `@deprecated`.
+- **v3.x** (subsequent minors / patches): no further changes; `vin` keeps
+  working unchanged.
+- **v4.0.0** (next major, no firm date): `vin` is removed. Migrate before
+  upgrading. Run a workspace-wide search for `\.vin\b` against `CarStatus`
+  / `AdminClientContext` shapes to find your callsites.
+
+## Compat-test reference
+
+`src/types/__tests__/car-status-deprecation.test.ts` is the regression
+fence — it pins the dual-write behavior so we can't accidentally drop the
+`vin` alias before the v4 release.
+
+---
+
 # Migrating to v3.0 — perm/cap removal
 
 `3.0.0` removes the install-time permission/capability gating surface that `2.x` carried alongside the runtime feature-probing API. The cleanup is mechanical: a few manifest fields disappear and two CLI commands stop existing.

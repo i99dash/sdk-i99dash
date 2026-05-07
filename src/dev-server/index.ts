@@ -78,7 +78,7 @@ export function defaultDevServerState(overrides?: {
   return {
     context: {
       userId: 'dev-user',
-      activeCarId: 'VIN-DEV-0001',
+      activeCarId: 'BYD-DEV-DEVICE-0001',
       locale: 'en',
       isDark: false,
       appVersion: '0.0.0-dev',

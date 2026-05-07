@@ -157,7 +157,7 @@ export class NativeCapStore {
 
   /// Current dev-side appId — taken from the dev context so boot
   /// rows are scoped per-mini-app the same way the device scopes
-  /// them by `(user, vin, app)`.
+  /// them by `(user, bydDeviceId, app)`.
   private activeAppId: string;
 
   constructor(activeAppId: string) {

@@ -9,8 +9,10 @@ export const MiniAppContextSchema = z.object({
   /// Opaque stable identifier for the signed-in user. Empty string
   /// when no account is bound. Treat as non-public.
   userId: z.string(),
-  /// VIN of the active car. Empty string when unbound. Sensitive —
-  /// don't render in plain text or log to third parties.
+  /// BYD media/cloud device ID of the active car (the value formerly
+  /// referred to as the car's "VIN" in this SDK — see MIGRATING.md;
+  /// it is NOT the ISO 3779 chassis VIN). Empty string when unbound.
+  /// Sensitive — don't render in plain text or log to third parties.
   activeCarId: z.string(),
   /// Host UI locale. Drives text direction + localised strings.
   locale: z.enum(['ar', 'en']),
