@@ -1045,8 +1045,26 @@
 
             <div class="target-card advanced" data-role="cluster" data-display-id="0">
               <svg viewBox="0 0 160 80" aria-hidden="true">
-                <rect x="20" y="28" width="120" height="32" rx="4" fill="#0a0e16" stroke="#58c7ff" stroke-width="1.5"/>
-                <text x="80" y="49" text-anchor="middle" fill="#58c7ff" font-size="14" font-weight="700">0</text>
+                <rect
+                  x="20"
+                  y="28"
+                  width="120"
+                  height="32"
+                  rx="4"
+                  fill="#0a0e16"
+                  stroke="#58c7ff"
+                  stroke-width="1.5"
+                />
+                <text
+                  x="80"
+                  y="49"
+                  text-anchor="middle"
+                  fill="#58c7ff"
+                  font-size="14"
+                  font-weight="700"
+                >
+                  0
+                </text>
               </svg>
               <span class="caption">Display 0</span>
               <span class="sub">main IVI · explicit id</span>
@@ -1054,8 +1072,26 @@
 
             <div class="target-card advanced" data-role="cluster" data-display-id="2">
               <svg viewBox="0 0 160 80" aria-hidden="true">
-                <rect x="20" y="28" width="120" height="32" rx="4" fill="#0a0e16" stroke="#7adb8e" stroke-width="1.5"/>
-                <text x="80" y="49" text-anchor="middle" fill="#7adb8e" font-size="14" font-weight="700">2</text>
+                <rect
+                  x="20"
+                  y="28"
+                  width="120"
+                  height="32"
+                  rx="4"
+                  fill="#0a0e16"
+                  stroke="#7adb8e"
+                  stroke-width="1.5"
+                />
+                <text
+                  x="80"
+                  y="49"
+                  text-anchor="middle"
+                  fill="#7adb8e"
+                  font-size="14"
+                  font-weight="700"
+                >
+                  2
+                </text>
               </svg>
               <span class="caption">Display 2</span>
               <span class="sub">FSE / aux</span>
@@ -1063,8 +1099,26 @@
 
             <div class="target-card advanced" data-role="cluster" data-display-id="3">
               <svg viewBox="0 0 160 80" aria-hidden="true">
-                <rect x="20" y="28" width="120" height="32" rx="4" fill="#0a0e16" stroke="#f4a261" stroke-width="1.5"/>
-                <text x="80" y="49" text-anchor="middle" fill="#f4a261" font-size="14" font-weight="700">3</text>
+                <rect
+                  x="20"
+                  y="28"
+                  width="120"
+                  height="32"
+                  rx="4"
+                  fill="#0a0e16"
+                  stroke="#f4a261"
+                  stroke-width="1.5"
+                />
+                <text
+                  x="80"
+                  y="49"
+                  text-anchor="middle"
+                  fill="#f4a261"
+                  font-size="14"
+                  font-weight="700"
+                >
+                  3
+                </text>
               </svg>
               <span class="caption">Display 3</span>
               <span class="sub">XDJA base</span>
@@ -1072,8 +1126,26 @@
 
             <div class="target-card advanced" data-role="cluster" data-display-id="4">
               <svg viewBox="0 0 160 80" aria-hidden="true">
-                <rect x="20" y="28" width="120" height="32" rx="4" fill="#0a0e16" stroke="#f4a261" stroke-width="1.5"/>
-                <text x="80" y="49" text-anchor="middle" fill="#f4a261" font-size="14" font-weight="700">4</text>
+                <rect
+                  x="20"
+                  y="28"
+                  width="120"
+                  height="32"
+                  rx="4"
+                  fill="#0a0e16"
+                  stroke="#f4a261"
+                  stroke-width="1.5"
+                />
+                <text
+                  x="80"
+                  y="49"
+                  text-anchor="middle"
+                  fill="#f4a261"
+                  font-size="14"
+                  font-weight="700"
+                >
+                  4
+                </text>
               </svg>
               <span class="caption">Display 4</span>
               <span class="sub">XDJA _0</span>
@@ -1081,8 +1153,26 @@
 
             <div class="target-card advanced" data-role="cluster" data-display-id="5">
               <svg viewBox="0 0 160 80" aria-hidden="true">
-                <rect x="20" y="28" width="120" height="32" rx="4" fill="#0a0e16" stroke="#f4a261" stroke-width="1.5"/>
-                <text x="80" y="49" text-anchor="middle" fill="#f4a261" font-size="14" font-weight="700">5</text>
+                <rect
+                  x="20"
+                  y="28"
+                  width="120"
+                  height="32"
+                  rx="4"
+                  fill="#0a0e16"
+                  stroke="#f4a261"
+                  stroke-width="1.5"
+                />
+                <text
+                  x="80"
+                  y="49"
+                  text-anchor="middle"
+                  fill="#f4a261"
+                  font-size="14"
+                  font-weight="700"
+                >
+                  5
+                </text>
               </svg>
               <span class="caption">Display 5</span>
               <span class="sub">XDJA _1 · driver</span>
@@ -1614,9 +1704,9 @@
         }
 
         // Build the icon-cell innards (fallback letter + lazy <img>
-         //  + optional running-dot + optional last-target badge). Pulled
-         //  out so the full grid and the recents strip render the same
-         //  decorations without duplicating the cache-hit branching.
+        //  + optional running-dot + optional last-target badge). Pulled
+        //  out so the full grid and the recents strip render the same
+        //  decorations without duplicating the cache-hit branching.
         function buildIconCell(p, opts) {
           opts = opts || {};
           var initial =
@@ -1671,11 +1761,7 @@
           return role === 'cluster' ? 'D' : role === 'passenger' ? 'P' : 'H';
         }
         function targetLabel(role) {
-          return role === 'cluster'
-            ? 'Driver'
-            : role === 'passenger'
-              ? 'Passenger'
-              : 'Head Unit';
+          return role === 'cluster' ? 'Driver' : role === 'passenger' ? 'Passenger' : 'Head Unit';
         }
 
         // Smart-tap: tap → direct-launch on the saved target if we
@@ -1863,8 +1949,7 @@
             btn.title = 'Nothing on the driver screen yet';
           } else {
             btn.removeAttribute('disabled');
-            btn.title =
-              'Stop ' + n + ' app' + (n === 1 ? '' : 's') + ' on the driver screen';
+            btn.title = 'Stop ' + n + ' app' + (n === 1 ? '' : 's') + ' on the driver screen';
           }
           if (badge) {
             badge.textContent = String(n);
@@ -2178,11 +2263,7 @@
             // 0.9.0 UX: persist {role, displayId} so a future tap on
             // this card relaunches on the same target without reopening
             // the picker. Skip on a failed launch above (return earlier).
-            rememberLaunch(
-              pkg.packageName,
-              role,
-              args.displayId == null ? null : args.displayId,
-            );
+            rememberLaunch(pkg.packageName, role, args.displayId == null ? null : args.displayId);
           } catch (e) {
             toast('launch failed: ' + (e && e.message), 'err');
           }
@@ -2350,8 +2431,7 @@
           }
           displays.forEach(function (d) {
             var chip = document.createElement('div');
-            chip.className =
-              'pad-target-chip' + (d.id === state.padDisplayId ? ' on' : '');
+            chip.className = 'pad-target-chip' + (d.id === state.padDisplayId ? ' on' : '');
             var lbl =
               d.overrideLabel ||
               (d.isDefault ? 'Head Unit' : null) ||
@@ -2407,7 +2487,7 @@
           // Down on backdrop directly (not on a child) records the
           // candidate close-on-release. Down on modal-card or any
           // descendant clears it.
-          modalDownTarget = (modal && e.target === modal) ? modal : null;
+          modalDownTarget = modal && e.target === modal ? modal : null;
         });
         document.addEventListener('click', function (e) {
           if (

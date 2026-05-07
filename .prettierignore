@@ -3,6 +3,11 @@ node_modules/
 coverage/
 pnpm-lock.yaml
 *.tsbuildinfo
+# Next.js build outputs committed alongside the adb-helper-style
+# example. They're generated artifacts — running prettier on them
+# is meaningless and floods format:check with hundreds of failures.
+.next/
+out/
 # Release-please owns CHANGELOG.md. Its generated format is consistent
 # but doesn't match prettier's defaults, and the file is rewritten on
 # every release — fighting prettier vs release-please there just
