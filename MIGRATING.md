@@ -82,7 +82,7 @@ before substitution.
 
 - **v4.0.0** (this release): hard cutover. `vin` / `bydDeviceId`
   payloads fail parse. Upgrade in lockstep with the matching backend
-  + host release.
+  - host release.
 - No further `v3.x` patches — `3.x` consumers stay on `3.x` until they
   cut over.
 

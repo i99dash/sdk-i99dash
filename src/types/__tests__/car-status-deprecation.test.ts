@@ -67,8 +67,6 @@ describe('CarStatusSchema — v4.0 deviceId + brand', () => {
   });
 
   it('rejects empty-string device id', () => {
-    expect(() =>
-      CarStatusSchema.parse({ ...baseValid, deviceId: '', brand: 'byd' }),
-    ).toThrow();
+    expect(() => CarStatusSchema.parse({ ...baseValid, deviceId: '', brand: 'byd' })).toThrow();
   });
 });
