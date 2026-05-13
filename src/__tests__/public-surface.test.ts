@@ -1,8 +1,6 @@
-/// Snapshot of the public surface — every symbol that the four old
-/// packages (`@i99dash/sdk-types`, `@i99dash/sdk`,
-/// `@i99dash/admin-sdk`) used to export must be reachable from
-/// `i99dash`'s top-level entry. Fail loudly if a future commit
-/// drops one on the floor.
+/// Snapshot of the public surface — every symbol downstream consumers
+/// depend on must remain reachable from `i99dash`'s top-level entry.
+/// Fail loudly if a future commit drops one on the floor.
 ///
 /// This is intentionally a flat list, not a programmatic walk —
 /// "did anyone delete `MiniAppContextSchema` accidentally?" needs a
@@ -16,7 +14,7 @@ import * as devServer from '../dev-server/index.js';
 import * as react from '../react/index.js';
 
 const EXPECTED_PUBLIC_SYMBOLS = [
-  // ── @i99dash/sdk-types: schemas + types ─────────────────────────
+  // ── wire schemas + types ────────────────────────────────────────
   'MiniAppContextSchema',
   'MiniAppManifestSchema',
   'LocaleMapSchema',
@@ -24,78 +22,43 @@ const EXPECTED_PUBLIC_SYMBOLS = [
   'ApiMethodSchema',
   'CallApiRequestSchema',
   'CallApiResponseSchema',
-  'CarStatusSchema',
-  'CarStatusStalenessSchema',
-  'CarDoorsSchema',
-  'CarDoorStateSchema',
-  'CarConnectionStateSchema',
   'HostCapabilitiesSchema',
-  'MediaSnapshotSchema',
-  'MediaSourceSchema',
-  'MediaPlayStateSchema',
-  'ClimateSnapshotSchema',
-  'ClimateModeSchema',
-  'VehicleDiagnosticsSnapshotSchema',
-  'GearPositionSchema',
-  'TirePressureSchema',
-  'VehicleEnvironmentSnapshotSchema',
-  'SystemSnapshotSchema',
-  'DistanceUnitSchema',
-  'TemperatureUnitSchema',
-  'OtaStatusSchema',
-  'ConnectivitySnapshotSchema',
-  'NetworkTypeSchema',
-  'LocationSnapshotSchema',
-  'NavigationSnapshotSchema',
-  'NavManeuverSchema',
+  'CarAssetResponseSchema',
+  'CarCatalogEntrySchema',
+  'CarCatalogListSchema',
+  'CarCommandResponseSchema',
+  'CarConnectionPushEnvelopeSchema',
+  'CarConnectionStateSchema',
+  'CarIdentitySchema',
+  'CarReadResponseSchema',
+  'CarSignalEventSchema',
+  'CarSignalPushEnvelopeSchema',
+  'CarSubscribeResponseSchema',
 
-  // ── @i99dash/sdk: runtime client ─────────────────────────────────
+  // ── runtime client ──────────────────────────────────────────────
   'MiniAppClient',
   'HostBridge',
   'HOST_GLOBAL',
   'HOST_EVENTS_GLOBAL',
   'LEGACY_HOST_GLOBAL',
+  'ensureHostEvents',
   'isCapabilitiesBridge',
-  'isCarStatusBridge',
-  'isClimateBridge',
-  'isConnectivityBridge',
-  'isLocationBridge',
-  'isMediaBridge',
-  'isNavigationBridge',
-  'isSystemBridge',
-  'isVehicleDiagnosticsBridge',
-  'isVehicleEnvironmentBridge',
+  'isCarBridge',
+  'isFamilyBridge',
   'resolveHostApi',
-  'CarStatusController',
-  'ClimateController',
-  'ConnectivityController',
-  'LocationController',
-  'MediaController',
-  'NavigationController',
-  'SystemController',
-  'VehicleDiagnosticsController',
-  'VehicleEnvironmentController',
+  'CAR_MAX_NAMES',
+  'CarController',
   'BridgeTimeoutError',
   'BridgeTransportError',
   'CallApiFailedError',
-  'CarStatusQuotaExceededError',
-  'CarStatusUnavailableError',
-  'ClimateUnavailableError',
-  'ConnectivityUnavailableError',
   'InvalidResponseError',
-  'LocationUnavailableError',
-  'MediaUnavailableError',
-  'NavigationUnavailableError',
   'NotInsideHostError',
   'SDKError',
-  'SystemUnavailableError',
-  'VehicleDiagnosticsUnavailableError',
-  'VehicleEnvironmentUnavailableError',
   'PermissionDeniedAggregator',
   'createClientOrSSR',
   'withTimeout',
 
-  // ── @i99dash/admin-sdk ──────────────────────────────────────────
+  // ── admin client ────────────────────────────────────────────────
   'AdminClient',
   'UnknownTemplateError',
   'FakeAdminBridge',
@@ -104,7 +67,7 @@ const EXPECTED_PUBLIC_SYMBOLS = [
 ] as const;
 
 describe('public surface', () => {
-  it('exports every symbol the old four packages exposed', () => {
+  it('exports every symbol downstream consumers depend on', () => {
     const exported = new Set(Object.keys(i99dash));
     const missing = EXPECTED_PUBLIC_SYMBOLS.filter((name) => !exported.has(name));
     expect(
@@ -124,7 +87,6 @@ describe('public surface', () => {
   it('exposes CATEGORY_SLUGS as the canonical category list', () => {
     expect(Array.isArray(i99dash.CATEGORY_SLUGS)).toBe(true);
     expect(i99dash.CATEGORY_SLUGS.length).toBeGreaterThan(0);
-    expect(i99dash.CATEGORY_SLUGS).toContain('media');
   });
 
   // Subpath exports: the runtime client + admin live at the root,
@@ -143,7 +105,8 @@ describe('public surface', () => {
     expect(typeof react.MiniAppProvider).toBe('function');
     expect(typeof react.useClient).toBe('function');
     expect(typeof react.useMiniAppContext).toBe('function');
-    expect(typeof react.useCarStatus).toBe('function');
+    expect(typeof react.useCarSignals).toBe('function');
+    expect(typeof react.useCarConnection).toBe('function');
     expect(typeof react.useCallApi).toBe('function');
   });
 });

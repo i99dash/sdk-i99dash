@@ -13,9 +13,9 @@
 /// lines: a class with typed methods that build params, call
 /// [invoke], and decode the typed response.
 ///
-/// Mirrors the existing `CarStatusController` / `MediaController`
-/// shape so SDK consumers see one mental model — the only
-/// difference is the underlying bridge method.
+/// Mirrors the unified `CarController` shape so SDK consumers see
+/// one mental model — the only difference is the underlying bridge
+/// method.
 
 import { ensureHostEvents, isFamilyBridge, type Bridge, type FamilyBridge } from './bridge.js';
 import { SDKError } from './errors.js';

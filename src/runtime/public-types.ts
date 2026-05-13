@@ -1,9 +1,9 @@
-/// Type-only entry point for `@i99dash/sdk`.
+/// Type-only entry point for `i99dash`.
 ///
-/// Importing from `@i99dash/sdk/types` instead of `@i99dash/sdk` is a
-/// pure-type affordance for consumers that only need to reference
-/// shapes (e.g. `MiniAppContext` in a server-rendered page) and want
-/// it obvious at the import site that no runtime is being pulled in.
+/// Importing from `i99dash/types` instead of `i99dash` is a pure-type
+/// affordance for consumers that only need to reference shapes (e.g.
+/// `MiniAppContext` in a server-rendered page) and want it obvious at
+/// the import site that no runtime is being pulled in.
 ///
 /// All re-exports here are `type` re-exports; the emitted JS bundle
 /// is empty.
@@ -12,14 +12,22 @@ export type {
   CallApiResponse,
   ApiMethod,
   MiniAppContext,
-  CarStatus,
-  CarStatusStaleness,
+  CarAssetResponse,
+  CarCatalogEntry,
+  CarCatalogList,
+  CarCommandResponse,
   CarConnectionState,
-  CarDoors,
-  CarDoorState,
+  CarIdentity,
+  CarReadResponse,
+  CarSignalEvent,
+  CarSubscribeResponse,
 } from '../types/index.js';
 
 export type { CallOptions } from './client.js';
 export type { SDKErrorCode } from './errors.js';
-export type { Bridge, CarStatusBridge, HostBridgeApi, WindowWithHost } from './bridge.js';
-export type { CarConnectionListener, CarStatusListener } from './car.js';
+export type { Bridge, CarBridge, HostBridgeApi, WindowWithHost } from './bridge.js';
+export type {
+  CarAssetBytes,
+  CarConnectionListener,
+  CarSignalListener,
+} from './car.js';

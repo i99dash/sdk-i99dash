@@ -18,19 +18,29 @@ export {
 } from './manifest.js';
 
 export {
-  CarStatusSchema,
-  type CarStatus,
-  CarStatusStalenessSchema,
-  type CarStatusStaleness,
-  CarDoorsSchema,
-  type CarDoors,
-  CarDoorStateSchema,
-  type CarDoorState,
+  CarAssetResponseSchema,
+  type CarAssetResponse,
+  CarCatalogEntrySchema,
+  type CarCatalogEntry,
+  CarCatalogListSchema,
+  type CarCatalogList,
+  CarCommandResponseSchema,
+  type CarCommandResponse,
+  CarConnectionPushEnvelopeSchema,
+  type CarConnectionPushEnvelope,
   CarConnectionStateSchema,
   type CarConnectionState,
-  CarBrandSchema,
-  type CarBrand,
-} from './car-status.js';
+  CarIdentitySchema,
+  type CarIdentity,
+  CarReadResponseSchema,
+  type CarReadResponse,
+  CarSignalEventSchema,
+  type CarSignalEvent,
+  CarSignalPushEnvelopeSchema,
+  type CarSignalPushEnvelope,
+  CarSubscribeResponseSchema,
+  type CarSubscribeResponse,
+} from './car.js';
 
 export { HostCapabilitiesSchema, type HostCapabilities } from './capabilities.js';
 
@@ -52,60 +62,3 @@ export {
   VehicleCapabilityProbeReportSchema,
   type VehicleCapabilityProbeReport,
 } from './vehicle-capabilities.js';
-
-export {
-  MediaSnapshotSchema,
-  type MediaSnapshot,
-  MediaSourceSchema,
-  type MediaSource,
-  MediaPlayStateSchema,
-  type MediaPlayState,
-} from './media.js';
-
-export {
-  ClimateSnapshotSchema,
-  type ClimateSnapshot,
-  ClimateModeSchema,
-  type ClimateMode,
-} from './climate.js';
-
-export {
-  VehicleDiagnosticsSnapshotSchema,
-  type VehicleDiagnosticsSnapshot,
-  GearPositionSchema,
-  type GearPosition,
-  TirePressureSchema,
-  type TirePressure,
-} from './vehicle-diagnostics.js';
-
-export {
-  VehicleEnvironmentSnapshotSchema,
-  type VehicleEnvironmentSnapshot,
-} from './vehicle-environment.js';
-
-export {
-  SystemSnapshotSchema,
-  type SystemSnapshot,
-  DistanceUnitSchema,
-  type DistanceUnit,
-  TemperatureUnitSchema,
-  type TemperatureUnit,
-  OtaStatusSchema,
-  type OtaStatus,
-} from './system.js';
-
-export {
-  ConnectivitySnapshotSchema,
-  type ConnectivitySnapshot,
-  NetworkTypeSchema,
-  type NetworkType,
-} from './connectivity.js';
-
-export { LocationSnapshotSchema, type LocationSnapshot } from './location.js';
-
-export {
-  NavigationSnapshotSchema,
-  type NavigationSnapshot,
-  NavManeuverSchema,
-  type NavManeuver,
-} from './navigation.js';

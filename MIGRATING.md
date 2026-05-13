@@ -301,3 +301,151 @@ Tradeoff: install-time access gating that the private GitHub Packages registry p
 ## Help
 
 If you hit something the sed snippets miss, file an issue on the new repo: <https://github.com/i99dash/i99dash-sdk>.
+
+---
+
+# Migrating to v5.0 — single `client.car` controller
+
+`5.0.0` is a hard cutover. The eight per-family controllers
+(`client.climate`, `.connectivity`, `.location`, `.media`,
+`.navigation`, `.system`, `.vehicleDiagnostics`, `.vehicleEnvironment`)
+plus the legacy `client.carStatus` shape are **gone**. They are
+replaced by a single `client.car` controller that wraps the host's
+v2 `car.*` bridge (`car-i99dash`, branch `feat/bridge-v2`).
+
+The host now owns one name-keyed catalog per brand (BYD today —
+see `car-i99dash/lib/sdk/brands/byd/byd_public_catalog.dart` for the
+canonical name list). Mini-apps **read by name** and **write by
+`actionId`**:
+
+```ts
+// v4
+const climate = await client.climate.getSnapshot();
+console.log(climate.cabinTempC, climate.fanSpeed);
+
+// v5
+const { values } = await client.car.read([
+  'ac_cabin_temp', 'ac_fan', 'ac_power',
+]);
+console.log(values.ac_cabin_temp, values.ac_fan);
+```
+
+Bridge protocol version: `2.0.0` (exposed on every `car.list`
+response + via `capabilities()`).
+
+## New shape
+
+```ts
+client.car.list({ category?, threeDOnly? });
+client.car.read(names);                 // ≤ 64 names per call
+client.car.subscribe({ names, onEvent });
+client.car.command(actionId, args?, { idempotencyKey? });
+client.car.identity();                  // memoised per car
+client.car.asset(path);                 // base64 → Uint8Array
+client.car.connectionSubscribe(onChange);
+```
+
+## Per-call mapping
+
+Name set pulled from `byd_public_catalog.dart`. If your mini-app
+targets a non-BYD brand later, swap the names for that brand's
+catalog — the controller surface is brand-agnostic.
+
+| v4 call                                              | v5 equivalent                                                                         |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `client.climate.getSnapshot()` → `cabinTempC`        | `client.car.read(['ac_cabin_temp'])`                                                  |
+| `client.climate.getSnapshot()` → `fanSpeed`          | `client.car.read(['ac_fan'])`                                                         |
+| `client.climate.getSnapshot()` → `acPower`           | `client.car.read(['ac_power'])`                                                       |
+| `client.climate.getSnapshot()` → `targetTempC`       | `client.car.read(['ac_target_temp'])`                                                 |
+| `client.vehicleDiagnostics.getSnapshot()` → tire psi | `client.car.read(['tpms_pressure_lf', 'tpms_pressure_rf', 'tpms_pressure_lr', 'tpms_pressure_rr'])` |
+| `client.vehicleDiagnostics.getSnapshot()` → odometer | `client.car.read(['stat_total_km'])`                                                  |
+| `client.carStatus.getSnapshot()` → `speedKmh`        | `client.car.read(['speed_kmh'])`                                                      |
+| `client.carStatus.getSnapshot()` → `batteryPct`      | `client.car.read(['battery_pct'])`                                                    |
+| `client.media.getSnapshot()` → playState             | host no longer ships a media bridge; consume Android MediaSession via `_admin.exec` if needed |
+| `client.system.getSnapshot()` → ota status           | not yet in v2 catalog — file an issue if you depend on it                             |
+| `client.connectivity.getSnapshot()` → networkType    | not yet in v2 catalog                                                                 |
+| `client.location.getSnapshot()` → lat/lon            | not yet in v2 catalog (PII tier — coming in a follow-up)                              |
+| `client.navigation.getSnapshot()` → destination      | not yet in v2 catalog                                                                 |
+| `client.car.onConnectionChange(...)`                 | `client.car.connectionSubscribe(state => ...)` — note 4 states now: `connected \| degraded \| disconnected \| unknown` |
+
+Writes (lights, doors, climate set-points) go through `car.command`:
+
+```ts
+await client.car.command('climate.power.toggle');
+await client.car.command('climate.temp.set', { tempC10: 220 });
+await client.car.command('lights.lowbeam.toggle');
+```
+
+The host returns the `CarCommandRouter` envelope verbatim
+(`{ ok, code?, data? }`) — the integrity, rate-limit, and
+stationary-speed gates are unchanged from v4.
+
+## 3D mini-apps
+
+`client.car.identity()` is the one-call entry-point for any
+mini-app that wants to load the active car's 3D model:
+
+```ts
+const id = await client.car.identity();
+// id.brand, id.modelCode, id.modelDisplay, id.modelAssetPath
+// id.clips:    canonical animation-clip name set
+// id.variants: { paint, wheels, glass } — asset name lists
+
+const asset = await client.car.asset(id.modelAssetPath!);
+// asset.bytes is a decoded Uint8Array; asset.contentType is the
+// inferred MIME (model/gltf-binary for .glb).
+```
+
+The result is memoised for the controller's lifetime and
+invalidated automatically when the connection-state listener
+observes `'disconnected'` — a car-swap flow picks up the new
+identity on the next call.
+
+## Removed symbols
+
+Top-level exports dropped in v5:
+
+- `CarStatusController`, `ClimateController`, `ConnectivityController`,
+  `LocationController`, `MediaController`, `NavigationController`,
+  `SystemController`, `VehicleDiagnosticsController`,
+  `VehicleEnvironmentController`
+- `isCarStatusBridge`, `isClimateBridge`, `isConnectivityBridge`,
+  `isLocationBridge`, `isMediaBridge`, `isNavigationBridge`,
+  `isSystemBridge`, `isVehicleDiagnosticsBridge`,
+  `isVehicleEnvironmentBridge` (replaced by `isCarBridge`)
+- `CarStatusUnavailableError`, `CarStatusQuotaExceededError`,
+  `ClimateUnavailableError`, `ConnectivityUnavailableError`,
+  `LocationUnavailableError`, `MediaUnavailableError`,
+  `NavigationUnavailableError`, `SystemUnavailableError`,
+  `VehicleDiagnosticsUnavailableError`,
+  `VehicleEnvironmentUnavailableError`
+- `CarStatusSchema`, `CarStatusStalenessSchema`, `CarDoorsSchema`,
+  `CarDoorStateSchema`, `CarBrandSchema`, `MediaSnapshotSchema`,
+  `MediaSourceSchema`, `MediaPlayStateSchema`,
+  `ClimateSnapshotSchema`, `ClimateModeSchema`,
+  `VehicleDiagnosticsSnapshotSchema`, `GearPositionSchema`,
+  `TirePressureSchema`, `VehicleEnvironmentSnapshotSchema`,
+  `SystemSnapshotSchema`, `DistanceUnitSchema`,
+  `TemperatureUnitSchema`, `OtaStatusSchema`,
+  `ConnectivitySnapshotSchema`, `NetworkTypeSchema`,
+  `LocationSnapshotSchema`, `NavigationSnapshotSchema`,
+  `NavManeuverSchema`
+
+React hooks dropped: `useCarStatus`, `useMedia`, `useClimate`,
+`useVehicleDiagnostics`, `useVehicleEnvironment`, `useSystem`,
+`useConnectivity`, `useLocation`, `useNavigation`. The replacements
+are `useCarSignals(names, opts?)` and `useCarConnection(opts?)`.
+
+Native-capability families (`display`, `surface`, `cursor`,
+`gesture`, `pkg`, `boot`) are **unchanged** — those are privileged
+ops orthogonal to car data, accessed via `_admin.exec`.
+
+## Why?
+
+One catalog beats nine schemas. Per-family controllers meant the SDK
+shipped nine zod schemas, nine `*UnavailableError` classes, nine
+`is*Bridge` predicates — and every time the host added a new datum
+("outside temperature, please") we needed a coordinated SDK release
+to expose it. The v2 bridge inverts that: the host declares its
+catalog at runtime via `car.list`, and a mini-app reads any name
+without an SDK bump.
