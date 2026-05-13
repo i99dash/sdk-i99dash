@@ -9,22 +9,14 @@ import {
 } from '../types/index.js';
 
 import type { Bridge } from './bridge.js';
-import { HostBridge, isCapabilitiesBridge } from './bridge.js';
-import { CarStatusController } from './car.js';
-import { ClimateController } from './climate.js';
-import { ConnectivityController } from './connectivity.js';
+import { HostBridge, isCapabilitiesBridge, isCarBridge } from './bridge.js';
+import { CarController } from './car.js';
 import { BootController } from './boot.js';
 import { CursorController } from './cursor.js';
 import { DisplayController } from './display.js';
 import { GestureController } from './gesture.js';
 import { PkgController } from './pkg.js';
-import { LocationController } from './location.js';
-import { MediaController } from './media.js';
-import { NavigationController } from './navigation.js';
 import { SurfaceController } from './surface.js';
-import { SystemController } from './system.js';
-import { VehicleDiagnosticsController } from './vehicle-diagnostics.js';
-import { VehicleEnvironmentController } from './vehicle-environment.js';
 import { CallApiFailedError, InvalidResponseError, NotInsideHostError } from './errors.js';
 import { PermissionDeniedAggregator, type PermissionDeniedListener } from './permission-denied.js';
 import { withTimeout } from './util/timeout.js';
@@ -56,90 +48,20 @@ export interface CallOptions {
 export class MiniAppClient {
   private constructor(private readonly bridge: Bridge) {}
 
-  /// Real-time car status surface. Lazy — the controller and any
-  /// underlying bridge subscriptions are not created until the
-  /// consumer first calls `client.car.getStatus()` or
-  /// `client.car.onStatusChange(...)`.
+  /// Unified car-data surface. Wraps every `car.*` bridge handler
+  /// the host exposes via v2 `CarBridgeService`: `list`, `read`,
+  /// `subscribe`, `command`, `identity`, `asset`,
+  /// `connectionSubscribe`. Read by name, write by `actionId` — see
+  /// the host's per-brand public catalog for the full name list.
   ///
-  /// Throws `CarStatusUnavailableError` from those methods if the
-  /// underlying bridge doesn't implement `CarStatusBridge` (e.g.,
-  /// unit-test stub or older host).
-  get car(): CarStatusController {
-    this._car ??= new CarStatusController(this.bridge);
+  /// Lazy — instance is not created until first access. Throws
+  /// `BridgeTransportError` from individual methods when the bridge
+  /// doesn't ship `callHandler` (older host pre-v2, plain test stub).
+  get car(): CarController {
+    this._car ??= new CarController(this.bridge);
     return this._car;
   }
-  private _car: CarStatusController | undefined;
-
-  /// Media surface. Same lazy-construction + capability-check pattern
-  /// as [car]. Throws `MediaUnavailableError` from `getSnapshot()` /
-  /// `onChange()` when the bridge doesn't ship the `media.read`
-  /// family. Use `await client.has('media.read')` to feature-detect
-  /// at app start.
-  get media(): MediaController {
-    this._media ??= new MediaController(this.bridge);
-    return this._media;
-  }
-  private _media: MediaController | undefined;
-
-  /// Cabin-climate surface (`climate.read` scope). Throws
-  /// `ClimateUnavailableError` when the bridge lacks the family.
-  get climate(): ClimateController {
-    this._climate ??= new ClimateController(this.bridge);
-    return this._climate;
-  }
-  private _climate: ClimateController | undefined;
-
-  /// Vehicle-diagnostics surface (`vehicle.diagnostics` scope).
-  /// Read-only tire pressure / gear / coarsened odometer.
-  get vehicleDiagnostics(): VehicleDiagnosticsController {
-    this._vehicleDiagnostics ??= new VehicleDiagnosticsController(this.bridge);
-    return this._vehicleDiagnostics;
-  }
-  private _vehicleDiagnostics: VehicleDiagnosticsController | undefined;
-
-  /// Vehicle-environment surface (`vehicle.environment` scope).
-  /// AQI / PM2.5 / ambient light. Distinct from diagnostics so an
-  /// AQI widget doesn't have to over-claim diagnostic permissions.
-  get vehicleEnvironment(): VehicleEnvironmentController {
-    this._vehicleEnvironment ??= new VehicleEnvironmentController(this.bridge);
-    return this._vehicleEnvironment;
-  }
-  private _vehicleEnvironment: VehicleEnvironmentController | undefined;
-
-  /// Host-system surface (`system.read` scope). OTA status, units,
-  /// display brightness — keeps mini-app UI in sync with host UI.
-  get system(): SystemController {
-    this._system ??= new SystemController(this.bridge);
-    return this._system;
-  }
-  private _system: SystemController | undefined;
-
-  /// Connectivity surface (`connectivity.read` scope). Network type
-  /// + paired-device count for graceful-degradation UIs.
-  get connectivity(): ConnectivityController {
-    this._connectivity ??= new ConnectivityController(this.bridge);
-    return this._connectivity;
-  }
-  private _connectivity: ConnectivityController | undefined;
-
-  /// Location surface (`location.read` scope). PII tier — gated by
-  /// manifest declaration AND the host's consent prompt. The host
-  /// returns `permission_denied` envelopes (forwarded to
-  /// `client.onPermissionDenied`) when consent is missing.
-  get location(): LocationController {
-    this._location ??= new LocationController(this.bridge);
-    return this._location;
-  }
-  private _location: LocationController | undefined;
-
-  /// Navigation surface (`nav.read` scope). PII tier — same gates as
-  /// `location`. Reveals destinations the user picked; intended for
-  /// nav-companion mini-apps that opt in.
-  get navigation(): NavigationController {
-    this._navigation ??= new NavigationController(this.bridge);
-    return this._navigation;
-  }
-  private _navigation: NavigationController | undefined;
+  private _car: CarController | undefined;
 
   /// Display enumeration (`display.read` scope, tier-1). Returns the
   /// list of addressable displays — the head unit's primary IVI, the
@@ -295,16 +217,10 @@ export class MiniAppClient {
     const bridge = this.bridge;
     if (!isCapabilitiesBridge(bridge)) {
       // Fallback: derive from what we can see structurally on the bridge.
-      // Pre-handshake hosts always have `car.status` if the bridge
-      // implements `CarStatusBridge`; tests with a plain stub get [].
+      // Pre-handshake hosts that ship the v2 `callHandler` surface
+      // declare the `car` family; tests with a plain stub get [].
       const families: string[] = [];
-      const b = bridge as Partial<{
-        getCarStatus: unknown;
-        subscribeCarStatus: unknown;
-      }>;
-      if (typeof b.getCarStatus === 'function' && typeof b.subscribeCarStatus === 'function') {
-        families.push('car.status');
-      }
+      if (isCarBridge(bridge)) families.push('car');
       this._capsCache = { bridgeVersion: 'unknown', families };
       return this._capsCache;
     }
@@ -330,7 +246,7 @@ export class MiniAppClient {
   ///
   /// Idiomatic use:
   ///
-  ///   if (await client.has('media.read')) { ... } else { ... }
+  ///   if (await client.has('car')) { ... } else { ... }
   async has(scope: string): Promise<boolean> {
     const caps = await this.capabilities();
     return caps.families.includes(scope);
@@ -343,8 +259,7 @@ export class MiniAppClient {
   ///
   /// `scope` argument forwarded to the listener identifies which
   /// surface produced the denial — e.g. `callApi:/api/v1/foo`,
-  /// `media.read`. App code typically forwards to its analytics
-  /// pipeline:
+  /// `car`. App code typically forwards to its analytics pipeline:
   ///
   ///   client.onPermissionDenied(scope => analytics.track('denied', { scope }));
   onPermissionDenied(listener: PermissionDeniedListener): () => void {

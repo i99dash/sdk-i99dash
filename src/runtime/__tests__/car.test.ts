@@ -1,381 +1,363 @@
-/// Tests for `CarStatusController` — the SDK side of the local
-/// real-time car status stream.
+// @vitest-environment jsdom
+/// Tests for the v2 unified `CarController` — the single `client.car`
+/// surface that wraps every `car.*` bridge handler.
 ///
-/// Strategy: hand `MiniAppClient.withBridge` a stub that satisfies
-/// `CarStatusBridge`. The stub's `subscribeCarStatus` captures the
-/// notify callback so the test can synchronously inject events and
-/// verify dispatch behaviour. No real WebView, no real DOM beyond
-/// the small bits we set up explicitly per test.
+/// Strategy: hand `MiniAppClient.withBridge` a stub that satisfies the
+/// `CarBridge` contract — a `callHandler(name, payload)` proxy. The
+/// stub records calls + returns whatever wire payload the test wants.
+/// Push events (`car.signal`, `car.connection`) are dispatched via the
+/// page-installed `__i99dashEvents` bus.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  CarStatusQuotaExceededError as _Quota, // re-export visibility check
-  CarStatusUnavailableError,
+  CAR_MAX_NAMES,
+  HOST_EVENTS_GLOBAL,
   MiniAppClient,
   type Bridge,
-  type CarStatus,
-  type CarStatusBridge,
+  type CarBridge,
+  type HostEventsApi,
 } from '../index.js';
+import { BridgeTransportError, InvalidResponseError } from '../errors.js';
 
-// Reference to silence "unused import" while still asserting
-// the export exists (the public-api snapshot test pins it too).
-void _Quota;
-
-interface StubState {
-  notifyStatus?: (raw: unknown) => void;
-  notifyConnection?: (raw: unknown) => void;
-  subscribeCalls: number;
-  unsubscribeCalls: number;
-  current: CarStatus;
+interface CallRecord {
+  name: string;
+  payload: unknown;
 }
 
-function newStubBridge(): { bridge: CarStatusBridge; state: StubState } {
-  const state: StubState = {
-    subscribeCalls: 0,
-    unsubscribeCalls: 0,
-    current: validStatus(),
-  };
-  const bridge: CarStatusBridge = {
-    async getContext() {
-      return {};
-    },
-    async callApi() {
-      return { success: true, data: null };
-    },
-    async getCarStatus() {
-      return state.current;
-    },
-    async subscribeCarStatus(notify) {
-      state.subscribeCalls++;
-      state.notifyStatus = notify;
-      return { id: `status-${state.subscribeCalls}` };
-    },
-    async unsubscribeCarStatus() {
-      state.unsubscribeCalls++;
-      state.notifyStatus = undefined;
-    },
-    async subscribeCarConnectionState(notify) {
-      state.notifyConnection = notify;
-      return { id: 'conn-1' };
-    },
-    async unsubscribeCarConnectionState() {
-      state.notifyConnection = undefined;
-    },
-  };
-  return { bridge, state };
+interface CarStub {
+  bridge: CarBridge;
+  calls: CallRecord[];
+  setHandler(name: string, fn: (payload: unknown) => unknown): void;
+  emitSignal(
+    subscriptionId: string,
+    data: { name: string; value: number | null; at: string },
+  ): void;
+  emitConnection(
+    subscriptionId: string,
+    state: 'connected' | 'degraded' | 'disconnected' | 'unknown',
+  ): void;
 }
 
-function validStatus(overrides: Partial<CarStatus> = {}): CarStatus {
+function newCarStub(): CarStub {
+  const handlers = new Map<string, (payload: unknown) => unknown>();
+  const calls: CallRecord[] = [];
+  const bridge: CarBridge = {
+    getContext: async () => ({}),
+    callApi: async () => ({ success: true, data: null }),
+    callHandler: async (name, ...args) => {
+      const payload = args[0];
+      calls.push({ name, payload });
+      const fn = handlers.get(name);
+      if (!fn) {
+        throw new Error(`unhandled callHandler call: ${name}`);
+      }
+      return fn(payload);
+    },
+  };
   return {
-    deviceId: 'byd:BYDMCKLE0PARD8801',
-    brand: 'byd',
-    at: '2026-04-27T12:00:00.000Z',
-    staleness: 'fresh',
-    isMoving: false,
-    speedKmh: 0,
-    doorsLocked: true,
-    batteryPct: 88,
-    ...overrides,
+    bridge,
+    calls,
+    setHandler(name, fn) {
+      handlers.set(name, fn);
+    },
+    emitSignal(subscriptionId, data) {
+      getEvents().dispatch('car.signal', { subscriptionId, data });
+    },
+    emitConnection(subscriptionId, state) {
+      getEvents().dispatch('car.connection', { subscriptionId, state });
+    },
   };
 }
+
+function getEvents(): HostEventsApi {
+  const e = (window as unknown as Record<string, HostEventsApi | undefined>)[HOST_EVENTS_GLOBAL];
+  if (!e) throw new Error('events bus not installed yet');
+  return e;
+}
+
+beforeEach(() => {
+  // Wipe the page-installed events bus between tests so subscription
+  // routing from a previous test doesn't leak.
+  delete (window as unknown as Record<string, unknown>)[HOST_EVENTS_GLOBAL];
+});
+
+afterEach(() => {
+  delete (window as unknown as Record<string, unknown>)[HOST_EVENTS_GLOBAL];
+});
+
+const validCatalog = {
+  bridgeVersion: '2.0.0',
+  brand: 'byd',
+  categories: ['climate', 'propulsion'],
+  names: [
+    {
+      name: 'ac_power',
+      category: 'climate',
+      description: 'AC power state',
+      writeable: true,
+      writeActionId: 'climate.power.toggle',
+      threeD: false,
+    },
+    {
+      name: 'speed_kmh',
+      category: 'dynamics',
+      description: 'Vehicle speed',
+      units: 'km/h',
+      writeable: false,
+      threeD: true,
+    },
+  ],
+} as const;
+
+describe('client.car.list', () => {
+  it('returns the parsed catalog list', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.list', () => validCatalog);
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const out = await client.car.list();
+    expect(out.bridgeVersion).toBe('2.0.0');
+    expect(out.brand).toBe('byd');
+    expect(out.names).toHaveLength(2);
+  });
+
+  it('forwards category + threeDOnly filters', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.list', () => validCatalog);
+    const client = MiniAppClient.withBridge(stub.bridge);
+    await client.car.list({ category: 'climate', threeDOnly: true });
+    expect(stub.calls[0]?.payload).toEqual({ category: 'climate', threeDOnly: true });
+  });
+
+  it('throws InvalidResponseError on malformed payload', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.list', () => ({ wrong: 'shape' }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    await expect(client.car.list()).rejects.toBeInstanceOf(InvalidResponseError);
+  });
+});
+
+describe('client.car.read', () => {
+  it('returns the typed values map', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.read', () => ({
+      values: { ac_power: 1, speed_kmh: 42 },
+      at: '2026-04-27T12:00:00.000Z',
+    }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const out = await client.car.read(['ac_power', 'speed_kmh']);
+    expect(out.values.ac_power).toBe(1);
+    expect(out.values.speed_kmh).toBe(42);
+  });
+
+  it('rejects locally when names.length > 64 without round-tripping', async () => {
+    const stub = newCarStub();
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const names = Array.from({ length: CAR_MAX_NAMES + 1 }, (_, i) => `n${i}`);
+    await expect(client.car.read(names)).rejects.toThrow(/too_many_names/);
+    expect(stub.calls).toHaveLength(0);
+  });
+
+  it('surfaces a host error envelope as an Error', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.read', () => ({
+      error: 'too_many_names',
+      max: CAR_MAX_NAMES,
+      requested: 100,
+    }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    await expect(client.car.read(['a'])).rejects.toThrow(/too_many_names/);
+  });
+});
+
+describe('client.car.subscribe', () => {
+  it('registers a listener and routes events by subscriptionId', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.subscribe', () => ({ subscriptionId: 'sub-1' }));
+    stub.setHandler('car.unsubscribe', () => ({ subscriptionId: 'sub-1' }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const events: Array<{ name: string; value: number | null }> = [];
+    const off = await client.car.subscribe({
+      names: ['speed_kmh'],
+      onEvent: (e) => events.push({ name: e.name, value: e.value }),
+    });
+    stub.emitSignal('sub-1', {
+      name: 'speed_kmh',
+      value: 42,
+      at: '2026-04-27T12:00:00.000Z',
+    });
+    expect(events).toEqual([{ name: 'speed_kmh', value: 42 }]);
+    off();
+    expect(stub.calls.some((c) => c.name === 'car.unsubscribe')).toBe(true);
+  });
+
+  it('ignores events for a different subscriptionId', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.subscribe', () => ({ subscriptionId: 'sub-A' }));
+    stub.setHandler('car.unsubscribe', () => ({ subscriptionId: 'sub-A' }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const events: Array<{ name: string; value: number | null }> = [];
+    await client.car.subscribe({
+      names: ['speed_kmh'],
+      onEvent: (e) => events.push({ name: e.name, value: e.value }),
+    });
+    stub.emitSignal('sub-OTHER', {
+      name: 'speed_kmh',
+      value: 99,
+      at: '2026-04-27T12:00:00.000Z',
+    });
+    expect(events).toEqual([]);
+  });
+
+  it('rejects locally when names.length > 64', async () => {
+    const stub = newCarStub();
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const names = Array.from({ length: CAR_MAX_NAMES + 1 }, (_, i) => `n${i}`);
+    await expect(client.car.subscribe({ names, onEvent: () => {} })).rejects.toThrow(
+      /too_many_names/,
+    );
+    expect(stub.calls).toHaveLength(0);
+  });
+
+  it('passing an aborted AbortSignal calls unsubscribe immediately', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.subscribe', () => ({ subscriptionId: 'sub-2' }));
+    stub.setHandler('car.unsubscribe', () => ({ subscriptionId: 'sub-2' }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const ac = new AbortController();
+    ac.abort();
+    await client.car.subscribe({
+      names: ['x'],
+      onEvent: () => {},
+      signal: ac.signal,
+    });
+    expect(stub.calls.some((c) => c.name === 'car.unsubscribe')).toBe(true);
+  });
+});
+
+describe('client.car.command', () => {
+  it('auto-generates an idempotencyKey when not provided', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.command', () => ({ ok: true }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    await client.car.command('climate.power.toggle');
+    const payload = stub.calls[0]?.payload as Record<string, unknown> | undefined;
+    expect(typeof payload?.idempotencyKey).toBe('string');
+    expect((payload?.idempotencyKey as string).length).toBeGreaterThan(8);
+  });
+
+  it('uses the caller-supplied idempotencyKey', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.command', () => ({ ok: true }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    await client.car.command('climate.power.toggle', { state: 1 }, { idempotencyKey: 'fixed-key' });
+    const payload = stub.calls[0]?.payload as Record<string, unknown> | undefined;
+    expect(payload?.idempotencyKey).toBe('fixed-key');
+    expect(payload?.actionId).toBe('climate.power.toggle');
+    expect(payload?.args).toEqual({ state: 1 });
+  });
+
+  it('returns the envelope verbatim including ok: false', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.command', () => ({ ok: false, code: 422 }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const r = await client.car.command('x');
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe(422);
+  });
+});
+
+describe('client.car.identity', () => {
+  const sampleIdentity = {
+    brand: 'byd',
+    modelCode: 'leopard8',
+    modelDisplay: 'BYD Leopard 8',
+    modelAssetPath: 'assets/3d/leopard8.glb',
+    clips: ['Door_FL_Open'],
+    variants: {
+      paint: ['paint_default'],
+      wheels: ['wheels_silver'],
+      glass: ['glass_clear'],
+    },
+  };
+
+  it('memoises the identity across repeat calls', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.identity', () => sampleIdentity);
+    const client = MiniAppClient.withBridge(stub.bridge);
+    await client.car.identity();
+    await client.car.identity();
+    const identityCalls = stub.calls.filter((c) => c.name === 'car.identity');
+    expect(identityCalls).toHaveLength(1);
+  });
+
+  it('clears the cache when connection observes "disconnected"', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.identity', () => sampleIdentity);
+    stub.setHandler('car.connection.subscribe', () => ({ subscriptionId: 'c-1' }));
+    stub.setHandler('car.connection.unsubscribe', () => ({ subscriptionId: 'c-1' }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    await client.car.identity();
+    await client.car.connectionSubscribe(() => {});
+    stub.emitConnection('c-1', 'disconnected');
+    await client.car.identity();
+    const identityCalls = stub.calls.filter((c) => c.name === 'car.identity');
+    expect(identityCalls.length).toBe(2);
+  });
+});
+
+describe('client.car.asset', () => {
+  it('decodes bytesBase64 to Uint8Array', async () => {
+    const stub = newCarStub();
+    // "hi" → base64 "aGk="
+    stub.setHandler('car.asset', () => ({
+      path: 'assets/3d/leopard8.glb',
+      contentType: 'model/gltf-binary',
+      size: 2,
+      bytesBase64: 'aGk=',
+    }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const r = await client.car.asset('assets/3d/leopard8.glb');
+    expect(r.bytes).toBeInstanceOf(Uint8Array);
+    expect(Array.from(r.bytes)).toEqual([104, 105]);
+    expect(r.contentType).toBe('model/gltf-binary');
+  });
+
+  it('surfaces error envelopes as Errors', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.asset', () => ({
+      error: 'disallowed_path',
+      path: '/etc/passwd',
+    }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    await expect(client.car.asset('/etc/passwd')).rejects.toThrow(/disallowed_path/);
+  });
+});
+
+describe('client.car.connectionSubscribe', () => {
+  it('routes connection events to the listener by subscriptionId', async () => {
+    const stub = newCarStub();
+    stub.setHandler('car.connection.subscribe', () => ({ subscriptionId: 'c-1' }));
+    stub.setHandler('car.connection.unsubscribe', () => ({ subscriptionId: 'c-1' }));
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const states: string[] = [];
+    const off = await client.car.connectionSubscribe((s) => states.push(s));
+    stub.emitConnection('c-1', 'connected');
+    stub.emitConnection('c-1', 'degraded');
+    stub.emitConnection('c-OTHER', 'disconnected'); // wrong id
+    expect(states).toEqual(['connected', 'degraded']);
+    off();
+    expect(stub.calls.some((c) => c.name === 'car.connection.unsubscribe')).toBe(true);
+  });
+});
 
 describe('client.car — capability gating', () => {
-  it('throws CarStatusUnavailableError when bridge lacks the surface', async () => {
+  it('throws BridgeTransportError when bridge lacks callHandler', async () => {
     const plain: Bridge = {
-      async getContext() {
-        return {};
-      },
-      async callApi() {
-        return { success: true, data: null };
-      },
+      getContext: async () => null,
+      callApi: async () => ({ success: true, data: null }),
     };
     const client = MiniAppClient.withBridge(plain);
-    await expect(client.car.getStatus()).rejects.toBeInstanceOf(CarStatusUnavailableError);
-    expect(() => client.car.onStatusChange(() => {})).toThrow(CarStatusUnavailableError);
-  });
-});
-
-describe('client.car.getStatus', () => {
-  it('returns the host snapshot validated by Zod', async () => {
-    const { bridge, state } = newStubBridge();
-    state.current = validStatus({ speedKmh: 60, isMoving: true });
-    const client = MiniAppClient.withBridge(bridge);
-    const status = await client.car.getStatus();
-    expect(status.speedKmh).toBe(60);
-    expect(status.isMoving).toBe(true);
-  });
-});
-
-describe('client.car.onStatusChange — lifecycle', () => {
-  it('lazily subscribes on first listener, unsubscribes on last off()', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    expect(state.subscribeCalls).toBe(0);
-
-    const off1 = client.car.onStatusChange(() => {});
-    // subscribeCarStatus is invoked async — let microtasks drain
-    await Promise.resolve();
-    expect(state.subscribeCalls).toBe(1);
-
-    const off2 = client.car.onStatusChange(() => {});
-    await Promise.resolve();
-    // No second bridge subscription — refcounted single sub.
-    expect(state.subscribeCalls).toBe(1);
-
-    off1();
-    expect(state.unsubscribeCalls).toBe(0); // still one listener left
-    off2();
-    await Promise.resolve();
-    expect(state.unsubscribeCalls).toBe(1);
-  });
-
-  it('off() is idempotent — second call is a no-op', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    const off = client.car.onStatusChange(() => {});
-    await Promise.resolve();
-    off();
-    off();
-    await Promise.resolve();
-    expect(state.unsubscribeCalls).toBe(1);
-  });
-
-  it('dispatches valid events to every registered listener', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    const a = vi.fn();
-    const b = vi.fn();
-    client.car.onStatusChange(a);
-    client.car.onStatusChange(b);
-    await Promise.resolve();
-
-    state.notifyStatus?.(validStatus({ doorsLocked: false }));
-    expect(a).toHaveBeenCalledOnce();
-    expect(b).toHaveBeenCalledOnce();
-    expect(a.mock.calls[0][0].doorsLocked).toBe(false);
-  });
-
-  it('drops malformed events without invoking listeners', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    const cb = vi.fn();
-    client.car.onStatusChange(cb);
-    await Promise.resolve();
-
-    // Suppress the dev-mode console.warn the controller emits
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    state.notifyStatus?.({ deviceId: 'X' /* missing required fields */ });
-    expect(cb).not.toHaveBeenCalled();
-    warn.mockRestore();
-  });
-
-  it('one listener throwing does not silence the others', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const bad = vi.fn(() => {
-      throw new Error('boom');
-    });
-    const good = vi.fn();
-    client.car.onStatusChange(bad);
-    client.car.onStatusChange(good);
-    await Promise.resolve();
-
-    state.notifyStatus?.(validStatus());
-    expect(bad).toHaveBeenCalledOnce();
-    expect(good).toHaveBeenCalledOnce();
-    err.mockRestore();
-  });
-});
-
-// ── Page Visibility pause / resume ───────────────────────────────────
-
-describe('Page Visibility pause + catch-up', () => {
-  let originalDocument: Document | undefined;
-  let visibilityHandlers: Array<() => void> = [];
-  let hidden = false;
-
-  beforeEach(() => {
-    visibilityHandlers = [];
-    hidden = false;
-    originalDocument = (globalThis as { document?: Document }).document;
-    (globalThis as { document?: unknown }).document = {
-      get hidden() {
-        return hidden;
-      },
-      addEventListener: (evt: string, h: () => void) => {
-        if (evt === 'visibilitychange') visibilityHandlers.push(h);
-      },
-      removeEventListener: () => {},
-    } as unknown as Document;
-  });
-
-  afterEach(() => {
-    if (originalDocument === undefined) {
-      delete (globalThis as { document?: unknown }).document;
-    } else {
-      (globalThis as { document?: Document }).document = originalDocument;
-    }
-  });
-
-  function setHidden(v: boolean): void {
-    hidden = v;
-    for (const h of visibilityHandlers) h();
-  }
-
-  it('suppresses callbacks while hidden, fires one catch-up on visible', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    const cb = vi.fn();
-    client.car.onStatusChange(cb);
-    await Promise.resolve();
-
-    // Visible: events flow normally.
-    state.notifyStatus?.(validStatus({ batteryPct: 90 }));
-    expect(cb).toHaveBeenCalledTimes(1);
-
-    // Hide: subsequent events are buffered.
-    setHidden(true);
-    state.notifyStatus?.(validStatus({ batteryPct: 80 }));
-    state.notifyStatus?.(validStatus({ batteryPct: 70 }));
-    expect(cb).toHaveBeenCalledTimes(1); // still 1
-
-    // Reveal: ONE catch-up event fires with the LATEST buffered value.
-    setHidden(false);
-    expect(cb).toHaveBeenCalledTimes(2);
-    expect(cb.mock.calls[1][0].batteryPct).toBe(70);
-
-    // Subsequent events flow normally again.
-    state.notifyStatus?.(validStatus({ batteryPct: 65 }));
-    expect(cb).toHaveBeenCalledTimes(3);
-  });
-});
-
-// ── Zod fast-path ────────────────────────────────────────────────────
-
-describe('Zod fast-path on stable shape', () => {
-  it('100 dispatches with identical shape complete in <500ms', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    let count = 0;
-    client.car.onStatusChange(() => {
-      count++;
-    });
-    await Promise.resolve();
-
-    const t0 = performance.now();
-    for (let i = 0; i < 100; i++) {
-      state.notifyStatus?.(validStatus({ batteryPct: 50 + (i % 50) }));
-    }
-    const elapsed = performance.now() - t0;
-
-    expect(count).toBe(100);
-    // 5ms/event budget. Generous for CI variability; the fast-path
-    // typically lands at <0.5ms/event on local dev.
-    expect(elapsed).toBeLessThan(500);
-  });
-
-  it('a new key in the payload re-triggers strict parse', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    const cb = vi.fn();
-    client.car.onStatusChange(cb);
-    await Promise.resolve();
-
-    // First payload — strict parse, populates shape cache.
-    state.notifyStatus?.(validStatus());
-    expect(cb).toHaveBeenCalledTimes(1);
-
-    // Second payload — adds an UNKNOWN key. Strict schema rejects;
-    // controller drops the event.
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    state.notifyStatus?.({
-      ...validStatus(),
-      bogusField: 'leak attempt',
-    });
-    expect(cb).toHaveBeenCalledTimes(1);
-    warn.mockRestore();
-  });
-});
-
-// ── Connection state stream (separate from status) ───────────────────
-
-describe('client.car.onConnectionChange', () => {
-  it('dispatches connected / disconnected events', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    const cb = vi.fn();
-    const off = client.car.onConnectionChange(cb);
-    await Promise.resolve();
-
-    state.notifyConnection?.('connected');
-    state.notifyConnection?.('disconnected');
-    expect(cb).toHaveBeenCalledTimes(2);
-    expect(cb.mock.calls[0][0]).toBe('connected');
-    expect(cb.mock.calls[1][0]).toBe('disconnected');
-
-    off();
-    await Promise.resolve();
-    state.notifyConnection?.('connected');
-    expect(cb).toHaveBeenCalledTimes(2); // no call after off
-  });
-
-  it('drops invalid connection state values', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    const cb = vi.fn();
-    client.car.onConnectionChange(cb);
-    await Promise.resolve();
-
-    state.notifyConnection?.('not_a_real_state');
-    expect(cb).not.toHaveBeenCalled();
-  });
-});
-
-describe('client.car — per-field read telemetry', () => {
-  it('records each field that consumer code reads off a status event', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    let last: CarStatus | undefined;
-    const off = client.car.onStatusChange((s) => {
-      last = s;
-    });
-    await Promise.resolve();
-    state.notifyStatus?.(validStatus({ speedKmh: 42 }));
-    expect(last).toBeDefined();
-
-    // Consumer code touches three fields:
-    void last!.speedKmh;
-    void last!.batteryPct;
-    void last!.batteryPct;
-    void last!.doorsLocked;
-
-    // Use the test-only debug surface; underscore-prefixed.
-    const snapshot = (
-      client.car as unknown as { _telemetrySnapshot: () => Record<string, number> }
-    )._telemetrySnapshot();
-    expect(snapshot.speedKmh).toBe(1);
-    expect(snapshot.batteryPct).toBe(2);
-    expect(snapshot.doorsLocked).toBe(1);
-
-    off();
-  });
-
-  it('snapshot resets the buffer', async () => {
-    const { bridge, state } = newStubBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    let last: CarStatus | undefined;
-    client.car.onStatusChange((s) => {
-      last = s;
-    });
-    await Promise.resolve();
-    state.notifyStatus?.(validStatus());
-    void last!.batteryPct;
-
-    const debug = client.car as unknown as { _telemetrySnapshot: () => Record<string, number> };
-    expect(debug._telemetrySnapshot().batteryPct).toBe(1);
-    // Second snapshot — buffer should have been cleared.
-    expect(debug._telemetrySnapshot()).toEqual({});
+    await expect(client.car.list()).rejects.toBeInstanceOf(BridgeTransportError);
   });
 });

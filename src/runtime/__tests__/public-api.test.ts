@@ -1,4 +1,4 @@
-/// Public-API surface lock for `@i99dash/sdk`.
+/// Public-API surface lock for `i99dash`.
 ///
 /// This test fails on any unintentional change (addition, removal,
 /// rename) of the package's named exports. The point is to make
@@ -20,14 +20,9 @@ const SDK_PUBLIC_EXPORTS = [
   'BootController',
   'BridgeTimeoutError',
   'BridgeTransportError',
+  'CAR_MAX_NAMES',
   'CallApiFailedError',
-  'CarStatusController',
-  'CarStatusQuotaExceededError',
-  'CarStatusUnavailableError',
-  'ClimateController',
-  'ClimateUnavailableError',
-  'ConnectivityController',
-  'ConnectivityUnavailableError',
+  'CarController',
   'CursorController',
   'DisplayController',
   'GestureController',
@@ -36,35 +31,17 @@ const SDK_PUBLIC_EXPORTS = [
   'HostBridge',
   'InvalidResponseError',
   'LEGACY_HOST_GLOBAL',
-  'LocationController',
-  'LocationUnavailableError',
-  'MediaController',
-  'MediaUnavailableError',
   'MiniAppClient',
-  'NavigationController',
-  'NavigationUnavailableError',
   'NotInsideHostError',
   'PermissionDeniedAggregator',
   'PkgController',
   'RESERVED_OVERRIDE_LABELS',
   'SDKError',
-  'SystemController',
-  'SystemUnavailableError',
-  'VehicleDiagnosticsController',
-  'VehicleDiagnosticsUnavailableError',
-  'VehicleEnvironmentController',
-  'VehicleEnvironmentUnavailableError',
   'createClientOrSSR',
+  'ensureHostEvents',
   'isCapabilitiesBridge',
-  'isCarStatusBridge',
-  'isClimateBridge',
-  'isConnectivityBridge',
-  'isLocationBridge',
-  'isMediaBridge',
-  'isNavigationBridge',
-  'isSystemBridge',
-  'isVehicleDiagnosticsBridge',
-  'isVehicleEnvironmentBridge',
+  'isCarBridge',
+  'isFamilyBridge',
   'resolveHostApi',
   'withTimeout',
 ] as const;
@@ -74,7 +51,7 @@ const TYPES_RUNTIME_EXPORTS: readonly string[] = [
   // added here is a regression — types should erase to nothing.
 ];
 
-describe('@i99dash/sdk — public API surface', () => {
+describe('i99dash — public API surface', () => {
   it('exports exactly the documented runtime symbols', () => {
     const actual = Object.keys(sdk).sort();
     expect(actual).toEqual([...SDK_PUBLIC_EXPORTS].sort());

@@ -1,314 +1,435 @@
-/// Mini-app-facing controller for the host's real-time car status
-/// stream. Local-only: every event reaches this code via the host's
-/// in-process `evaluateJavaScript`, never via the network.
+/// Unified `client.car` controller — wraps every `car.*` bridge
+/// handler exposed by the host's v2 `CarBridgeService`.
 ///
-/// API surface (intentionally human-readable, no abbreviations):
+/// The host owns one name-keyed catalog per brand (BYD today, more
+/// brands later); mini-apps read by name, write by `actionId`. This
+/// controller is the only SDK surface for car data; per-family
+/// shims (climate, media, location, …) were removed in v5.
 ///
-///   const status = await client.car.getStatus();
-///   const off    = client.car.onStatusChange(s => render(s));
-///   const offC   = client.car.onConnectionChange(s => banner(s));
-///   off(); offC();
+/// API at a glance:
 ///
-/// Internal implementation notes worth knowing:
+///   const list   = await client.car.list({ category: 'climate' });
+///   const snap   = await client.car.read(['ac_power', 'speed_kmh']);
+///   const off    = await client.car.subscribe({
+///                    names: ['speed_kmh'],
+///                    onEvent: e => render(e.value),
+///                  });
+///   const ok     = await client.car.command('climate.power.toggle');
+///   const ident  = await client.car.identity();   // memoised per car
+///   const asset  = await client.car.asset('assets/3d/leopard8.glb');
+///   const offC   = await client.car.connectionSubscribe(
+///                    state => banner(state),
+///                  );
 ///
-///   - **Page Visibility pause/resume.** While `document.hidden ==
-///     true`, callbacks are suppressed and the latest event is
-///     buffered. On `visibilitychange` back to visible, ONE catch-up
-///     event fires and normal flow resumes. Saves CPU on backgrounded
-///     mini-apps without forcing the host to be visibility-aware.
-///
-///   - **Zod fast-path.** Every dispatched event is validated, but
-///     once a payload's *key set* matches the previous one we skip
-///     `Schema.parse` and re-use the cached schema's narrowed type.
-///     Invalidates on a parse failure or a new key — so adding a
-///     field server-side still triggers a strict re-parse on the
-///     first event with the new shape.
+/// All wire shapes are Zod-validated on receipt; consumer types are
+/// derived from the schemas in `../types/car.ts`.
 
 import {
-  CarConnectionStateSchema,
-  CarStatusSchema,
+  CarAssetResponseSchema,
+  type CarCatalogList,
+  CarCatalogListSchema,
+  type CarCommandResponse,
+  CarCommandResponseSchema,
   type CarConnectionState,
-  type CarStatus,
-} from '../types/index.js';
+  CarConnectionPushEnvelopeSchema,
+  type CarIdentity,
+  CarIdentitySchema,
+  type CarReadResponse,
+  CarReadResponseSchema,
+  type CarSignalEvent,
+  CarSignalPushEnvelopeSchema,
+  CarSubscribeResponseSchema,
+} from '../types/car.js';
 
-import { isCarStatusBridge, type Bridge } from './bridge.js';
-import { CarStatusUnavailableError, InvalidResponseError } from './errors.js';
+import { ensureHostEvents, type Bridge, type HostEventsApi } from './bridge.js';
+import { BridgeTransportError, InvalidResponseError } from './errors.js';
 
-export type CarStatusListener = (status: CarStatus) => void;
+/// Cap mirrors the host's `kMaxNamesPerSubscription`. Both sides
+/// enforce; the SDK rejects locally so consumers get a typed error
+/// instead of a generic bridge round-trip failure.
+export const CAR_MAX_NAMES = 64;
+
+export type CarSignalListener = (event: CarSignalEvent) => void;
 export type CarConnectionListener = (state: CarConnectionState) => void;
 
-/// Single instance per [MiniAppClient]. Holds the page-visibility
-/// state, the cached schema fingerprint, and the bridge subscription
-/// ids so cleanup is correct even if the consumer forgets to call
-/// `off()`.
-export class CarStatusController {
+/// Re-export the wire types from the SDK's runtime entry-point so a
+/// consumer only needs one import.
+export type {
+  CarAssetResponse,
+  CarCatalogEntry,
+  CarCatalogList,
+  CarCommandResponse,
+  CarConnectionState,
+  CarIdentity,
+  CarReadResponse,
+  CarSignalEvent,
+  CarSubscribeResponse,
+} from '../types/car.js';
+
+/// Decoded asset payload — bytes already base64-decoded. The raw
+/// `bytesBase64` string never reaches consumer code.
+export interface CarAssetBytes {
+  path: string;
+  contentType: string;
+  size: number;
+  bytes: Uint8Array;
+}
+
+interface CarBridgeApi {
+  callHandler: (name: string, ...args: unknown[]) => Promise<unknown>;
+}
+
+/// Mini-app facing controller. One instance per [MiniAppClient];
+/// lazily instantiated on first access.
+///
+/// All bridge calls go through the same `callHandler` channel the
+/// host exposes via `window.__i99dashHost.callHandler`. Push events
+/// (`car.signal`, `car.connection`) arrive on `__i99dashEvents` —
+/// the controller installs the dispatcher lazily on the first
+/// `subscribe`.
+export class CarController {
   private readonly bridge: Bridge;
-  /// Cached `key set` of the last successfully-parsed payload —
-  /// sorted, joined by ``. Cheap to compare; safe to reuse
-  /// because `CarStatusSchema` is `.strict()` (no rename surprise).
-  private _statusShape: string | null = null;
-  private _connShape: string | null = null;
-  /// Page Visibility plumbing — installed lazily on the first
-  /// `onStatusChange` so SSR / non-DOM consumers don't pay for an
-  /// event listener that will never fire.
-  private _visibilityInstalled = false;
-  private _hidden = false;
-  private _statusListeners = new Set<CarStatusListener>();
-  private _connListeners = new Set<CarConnectionListener>();
-  private _lastWhilePaused: CarStatus | null = null;
-  /// Lazily-acquired subscription ids — null until first listener
-  /// registers; reused for every subsequent listener; released when
-  /// the last listener unsubscribes.
-  private _statusSubId: string | null = null;
-  private _connSubId: string | null = null;
-  /// Per-field read-count buffer used to back the schema-evolution
-  /// "is this field unused?" criterion (< 5% of active mini-apps
-  /// touch it across 90 rolling days). Counts are incremented
-  /// transparently as consumer code reads properties off the
-  /// CarStatus value via a Proxy. The host-side telemetry sink
-  /// that ingests these is wired in Phase 2 — until then, the
-  /// buffer is read-only via [_telemetrySnapshot] for tests.
-  private _fieldReadCounts = new Map<string, number>();
+  /// Memoised identity. Cleared when the connection-state listener
+  /// observes `'disconnected'` so a swap-car flow picks up the new
+  /// brand/model on the next call.
+  private _identityCache: CarIdentity | null = null;
+  /// Local per-subscriptionId → listener routing for `car.signal`.
+  private _signalRoutes = new Map<string, CarSignalListener>();
+  /// Local per-subscriptionId → listener routing for `car.connection`.
+  private _connectionRoutes = new Map<string, CarConnectionListener>();
+  /// Single shared bus listeners, installed once the first
+  /// subscribe lands. Storing the unsubscribe fn lets us tear the
+  /// page-global handler down only after every per-id route is gone.
+  private _signalBusOff: (() => void) | null = null;
+  private _connectionBusOff: (() => void) | null = null;
 
   constructor(bridge: Bridge) {
     this.bridge = bridge;
   }
 
-  /// Test-only: return a snapshot of the per-field read counts and
-  /// reset the internal buffer. Underscore-prefixed to mark as
-  /// non-stable surface; not part of `public-api.test.ts`'s lock list.
-  /// Will be replaced by a host-side telemetry-flush integration in
-  /// Phase 2.
-  _telemetrySnapshot(): Record<string, number> {
-    const out: Record<string, number> = {};
-    for (const [k, v] of this._fieldReadCounts) out[k] = v;
-    this._fieldReadCounts.clear();
-    return out;
+  // ── car.list ─────────────────────────────────────────────────────
+
+  async list(opts: { category?: string; threeDOnly?: boolean } = {}): Promise<CarCatalogList> {
+    const payload: Record<string, unknown> = {};
+    if (opts.category !== undefined) payload.category = opts.category;
+    if (opts.threeDOnly !== undefined) payload.threeDOnly = opts.threeDOnly;
+    const raw = await this._call('car.list', payload);
+    return _parse(CarCatalogListSchema, raw, 'car.list');
   }
 
-  /// One-shot read. Throws [CarStatusUnavailableError] if the bridge
-  /// doesn't implement the streaming surface (e.g., unit-test stub
-  /// or older host).
-  async getStatus(): Promise<CarStatus> {
-    if (!isCarStatusBridge(this.bridge)) {
-      throw new CarStatusUnavailableError('bridge does not implement CarStatusBridge');
+  // ── car.read ─────────────────────────────────────────────────────
+
+  async read(names: string[]): Promise<CarReadResponse> {
+    if (names.length > CAR_MAX_NAMES) {
+      throw new Error(`signals.too_many_names: requested ${names.length}, max ${CAR_MAX_NAMES}`);
     }
-    const raw = await this.bridge.getCarStatus();
-    return this._parseStatus(raw);
+    const raw = await this._call('car.read', { names });
+    if (_isErrorEnvelope(raw)) {
+      throw new Error(`car.read returned error: ${_errString(raw)}`);
+    }
+    return _parse(CarReadResponseSchema, raw, 'car.read');
   }
 
-  /// Subscribe to status deltas. Returns an unsubscribe fn — the
-  /// returned closure is idempotent (calling it twice is a no-op).
+  // ── car.subscribe / car.unsubscribe ──────────────────────────────
+
+  /// Subscribe to the host's name-keyed signal stream. Returns an
+  /// async unsubscribe closure — idempotent (calling twice is a
+  /// no-op). The optional `signal` aborts the subscription
+  /// synchronously when fired.
   ///
-  /// First call lazily installs the bridge subscription + the page-
-  /// visibility listener; last `off()` tears them down. So a
-  /// consumer that subscribes once and unsubscribes correctly leaves
-  /// no resources behind.
-  onStatusChange(listener: CarStatusListener): () => void {
-    if (!isCarStatusBridge(this.bridge)) {
-      throw new CarStatusUnavailableError('bridge does not implement CarStatusBridge');
+  /// Rejects with `Error('signals.too_many_names')` when
+  /// `names.length > 64` so consumers don't pay for a round-trip to
+  /// see the host's `too_many_names` envelope.
+  async subscribe(opts: {
+    names: string[];
+    onEvent: CarSignalListener;
+    signal?: AbortSignal;
+  }): Promise<() => void> {
+    if (opts.names.length > CAR_MAX_NAMES) {
+      throw new Error('signals.too_many_names');
     }
-    const bridge = this.bridge;
-    this._statusListeners.add(listener);
-    this._installVisibility();
-    if (this._statusSubId === null) {
-      // Lazy bridge subscribe — fire-and-await; we don't expose
-      // the await because consumers want a synchronous cleanup
-      // closure. A failure surfaces via the bridge's
-      // `BridgeTransportError`, which the host page sees in
-      // devtools but isn't easily catchable here.
-      void bridge
-        .subscribeCarStatus((raw) => this._dispatchStatus(raw))
-        .then(({ id }) => {
-          this._statusSubId = id;
-        })
-        .catch(() => {
-          // Subscription failed; remove the listener so the
-          // consumer's cleanup is still valid.
-          this._statusListeners.delete(listener);
-        });
+    const idempotencyKey = _newUuid();
+    this._ensureSignalBus();
+    const raw = await this._call('car.subscribe', {
+      names: opts.names,
+      idempotencyKey,
+    });
+    if (_isErrorEnvelope(raw)) {
+      throw new Error(`car.subscribe returned error: ${_errString(raw)}`);
     }
+    const parsed = _parse(CarSubscribeResponseSchema, raw, 'car.subscribe');
+    const subscriptionId = parsed.subscriptionId;
+    this._signalRoutes.set(subscriptionId, opts.onEvent);
+
     let off = false;
-    return () => {
+    const unsubscribe = (): void => {
       if (off) return;
       off = true;
-      this._statusListeners.delete(listener);
-      if (this._statusListeners.size === 0 && this._statusSubId !== null) {
-        const id = this._statusSubId;
-        this._statusSubId = null;
-        void bridge.unsubscribeCarStatus(id).catch(() => {
-          // Bridge cleanup failed — local listener is already
-          // gone; host-side stale id is bounded by its own cap.
-        });
+      this._signalRoutes.delete(subscriptionId);
+      this._maybeTearDownSignalBus();
+      void this._call('car.unsubscribe', { subscriptionId }).catch(() => {
+        // Local routing is already gone; the host-side cleanup
+        // failing is bounded — the next dispose-all wipes it.
+      });
+    };
+
+    if (opts.signal) {
+      if (opts.signal.aborted) {
+        unsubscribe();
+      } else {
+        opts.signal.addEventListener('abort', unsubscribe, { once: true });
       }
+    }
+
+    return unsubscribe;
+  }
+
+  // ── car.command ──────────────────────────────────────────────────
+
+  async command(
+    actionId: string,
+    args: Record<string, unknown> = {},
+    opts: { idempotencyKey?: string } = {},
+  ): Promise<CarCommandResponse> {
+    const idempotencyKey = opts.idempotencyKey ?? _newUuid();
+    const raw = await this._call('car.command', {
+      actionId,
+      args,
+      idempotencyKey,
+    });
+    return _parse(CarCommandResponseSchema, raw, 'car.command');
+  }
+
+  // ── car.identity ─────────────────────────────────────────────────
+
+  /// Returns the brand / model / 3D-asset descriptor. Memoised per
+  /// car for the lifetime of the controller — cleared automatically
+  /// when the connection-state subscriber observes
+  /// `'disconnected'`, so a swap-car flow picks up the new identity
+  /// on the next call.
+  async identity(): Promise<CarIdentity> {
+    if (this._identityCache) return this._identityCache;
+    const raw = await this._call('car.identity', {});
+    const parsed = _parse(CarIdentitySchema, raw, 'car.identity');
+    this._identityCache = parsed;
+    return parsed;
+  }
+
+  // ── car.asset ────────────────────────────────────────────────────
+
+  /// Load a bundle-resident asset (3D model / texture) and return
+  /// its bytes already base64-decoded. Throws on a host-emitted error
+  /// envelope (`disallowed_path`, `asset_not_found`, `asset_too_large`).
+  async asset(path: string): Promise<CarAssetBytes> {
+    const raw = await this._call('car.asset', { path });
+    if (_isErrorEnvelope(raw)) {
+      throw new Error(`car.asset returned error: ${_errString(raw)}`);
+    }
+    const parsed = _parse(CarAssetResponseSchema, raw, 'car.asset');
+    return {
+      path: parsed.path,
+      contentType: parsed.contentType,
+      size: parsed.size,
+      bytes: _decodeBase64(parsed.bytesBase64),
     };
   }
 
-  /// Subscribe to host data-availability transitions. Same lifecycle
-  /// pattern as [onStatusChange] — lazy setup, refcounted teardown.
-  ///
-  /// NOT page-visibility-paused: a backgrounded mini-app still wants
-  /// to know if the data went stale, so the connection-banner can
-  /// be correct on resume. The volume here is tiny (≤1 event per
-  /// poll cycle).
-  onConnectionChange(listener: CarConnectionListener): () => void {
-    if (!isCarStatusBridge(this.bridge)) {
-      throw new CarStatusUnavailableError('bridge does not implement CarStatusBridge');
+  // ── car.connection.subscribe / unsubscribe ───────────────────────
+
+  /// Subscribe to host connection-state transitions. The host emits
+  /// the initial state on a microtask, then again on every flip.
+  /// On `'disconnected'` the identity cache is invalidated so a
+  /// later car swap re-fetches.
+  async connectionSubscribe(onChange: CarConnectionListener): Promise<() => void> {
+    this._ensureConnectionBus();
+    const raw = await this._call('car.connection.subscribe', {});
+    if (_isErrorEnvelope(raw)) {
+      throw new Error(`car.connection.subscribe returned error: ${_errString(raw)}`);
     }
-    const bridge = this.bridge;
-    this._connListeners.add(listener);
-    if (this._connSubId === null) {
-      void bridge
-        .subscribeCarConnectionState((raw) => this._dispatchConnection(raw))
-        .then(({ id }) => {
-          this._connSubId = id;
-        })
-        .catch(() => {
-          this._connListeners.delete(listener);
-        });
+    const subscriptionId = _extractSubscriptionId(raw);
+    if (!subscriptionId) {
+      throw new BridgeTransportError(
+        'car.connection.subscribe response missing subscriptionId',
+        raw,
+      );
     }
+    const wrapped: CarConnectionListener = (state) => {
+      if (state === 'disconnected') this._identityCache = null;
+      onChange(state);
+    };
+    this._connectionRoutes.set(subscriptionId, wrapped);
     let off = false;
     return () => {
       if (off) return;
       off = true;
-      this._connListeners.delete(listener);
-      if (this._connListeners.size === 0 && this._connSubId !== null) {
-        const id = this._connSubId;
-        this._connSubId = null;
-        void bridge.unsubscribeCarConnectionState(id).catch(() => {});
-      }
+      this._connectionRoutes.delete(subscriptionId);
+      this._maybeTearDownConnectionBus();
+      void this._call('car.connection.unsubscribe', { subscriptionId }).catch(() => {});
     };
   }
 
   // ── Internals ────────────────────────────────────────────────────
 
-  private _installVisibility(): void {
-    if (this._visibilityInstalled) return;
-    this._visibilityInstalled = true;
-    if (typeof document === 'undefined') return;
-    const onChange = (): void => {
-      this._hidden = document.hidden;
-      if (!this._hidden && this._lastWhilePaused !== null) {
-        const buffered = this._lastWhilePaused;
-        this._lastWhilePaused = null;
-        for (const l of [...this._statusListeners]) {
-          this._invokeSafe(l, buffered);
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', onChange);
-  }
-
-  private _dispatchStatus(raw: unknown): void {
-    let parsed: CarStatus;
+  private async _call(handler: string, payload: unknown): Promise<unknown> {
+    const api = _hostApi(this.bridge);
     try {
-      parsed = this._parseStatus(raw);
-    } catch (e) {
-      // Malformed event — drop with a dev console warning rather
-      // than crash the page. Production builds skip the warning
-      // when console is no-op'd.
-      console.warn('[i99dash] dropped malformed car.status event:', e);
-      return;
-    }
-    if (this._hidden) {
-      this._lastWhilePaused = parsed;
-      return;
-    }
-    for (const l of [...this._statusListeners]) {
-      this._invokeSafe(l, parsed);
+      return await api.callHandler(handler, payload);
+    } catch (cause) {
+      throw new BridgeTransportError(`${handler} bridge call failed`, cause);
     }
   }
 
-  private _dispatchConnection(raw: unknown): void {
-    let parsed: CarConnectionState;
-    try {
-      parsed = this._parseConnection(raw);
-    } catch {
-      // Same drop-and-log policy as status.
-      return;
-    }
-    for (const l of [...this._connListeners]) {
+  private _ensureSignalBus(): void {
+    if (this._signalBusOff) return;
+    const events: HostEventsApi = ensureHostEvents();
+    this._signalBusOff = events.on('car.signal', (payload) => {
+      const env = _parseSafe(CarSignalPushEnvelopeSchema, payload);
+      if (!env) return; // malformed, drop
+      const route = this._signalRoutes.get(env.subscriptionId);
+      if (!route) return;
       try {
-        l(parsed);
+        route(env.data);
       } catch (e) {
-        console.error('[i99dash] connection listener threw:', e);
+        console.error('[i99dash] car.signal listener threw:', e);
       }
-    }
+    });
   }
 
-  private _invokeSafe(l: CarStatusListener, s: CarStatus): void {
-    try {
-      l(s);
-    } catch (e) {
-      console.error('[i99dash] car-status listener threw:', e);
-    }
+  private _maybeTearDownSignalBus(): void {
+    if (this._signalRoutes.size > 0) return;
+    this._signalBusOff?.();
+    this._signalBusOff = null;
   }
 
-  private _parseStatus(raw: unknown): CarStatus {
-    const shape = _shapeFingerprint(raw);
-    let parsed: CarStatus;
-    if (shape !== null && shape === this._statusShape) {
-      // Fast-path: same key-set as the last successful parse.
-      // Trust the cached schema and use the runtime cast — Zod
-      // already proved this shape parses cleanly. Drop the value-
-      // level checks (range, enum) for the fast-path; if the host
-      // ever pushes a malformed value with the same shape it'll
-      // fail at the consumer's defensive read instead of here.
-      parsed = raw as CarStatus;
-    } else {
-      const result = CarStatusSchema.safeParse(raw);
-      if (!result.success) {
-        throw new InvalidResponseError('car.status payload did not match schema', result.error);
+  private _ensureConnectionBus(): void {
+    if (this._connectionBusOff) return;
+    const events: HostEventsApi = ensureHostEvents();
+    this._connectionBusOff = events.on('car.connection', (payload) => {
+      const env = _parseSafe(CarConnectionPushEnvelopeSchema, payload);
+      if (!env) return;
+      const route = this._connectionRoutes.get(env.subscriptionId);
+      if (!route) return;
+      try {
+        route(env.state);
+      } catch (e) {
+        console.error('[i99dash] car.connection listener threw:', e);
       }
-      this._statusShape = shape;
-      parsed = result.data;
-    }
-    return this._instrumentReads(parsed);
+    });
   }
 
-  /// Wrap [s] in a Proxy whose `get` trap increments a per-field
-  /// counter when consumer code reads a property. Skips internal
-  /// JS lookups (Symbol keys, prototype methods) so React's
-  /// `Object.is` shallow-comparison doesn't pollute the count.
-  ///
-  /// The wrapped value is `===`-distinct from the underlying object
-  /// each time, but the values within are shared — JSON.stringify,
-  /// destructure, and Object.entries all work normally. A consumer
-  /// that calls `useMemo(() => ..., [status])` will re-run on every
-  /// event, which is the correct behaviour anyway since each event
-  /// represents a fresh push from the host.
-  private _instrumentReads(s: CarStatus): CarStatus {
-    const counts = this._fieldReadCounts;
-    return new Proxy(s, {
-      get(target, prop, receiver) {
-        if (typeof prop === 'string' && Object.prototype.hasOwnProperty.call(target, prop)) {
-          counts.set(prop, (counts.get(prop) ?? 0) + 1);
-        }
-        return Reflect.get(target, prop, receiver);
-      },
-    }) as CarStatus;
-  }
-
-  private _parseConnection(raw: unknown): CarConnectionState {
-    const shape = _shapeFingerprint(raw);
-    if (shape !== null && shape === this._connShape) {
-      return raw as CarConnectionState;
-    }
-    const result = CarConnectionStateSchema.safeParse(raw);
-    if (!result.success) {
-      throw new InvalidResponseError('car.connection payload did not match schema', result.error);
-    }
-    this._connShape = shape;
-    return result.data;
+  private _maybeTearDownConnectionBus(): void {
+    if (this._connectionRoutes.size > 0) return;
+    this._connectionBusOff?.();
+    this._connectionBusOff = null;
   }
 }
 
-/// Cheap structural fingerprint — sorted top-level key set joined by
-/// a non-printable separator. Returns null for non-objects (so the
-/// fast-path is skipped for strings / booleans like the connection
-/// state enum, which always re-parses anyway).
-function _shapeFingerprint(raw: unknown): string | null {
-  if (raw === null || typeof raw !== 'object') return null;
-  const keys = Object.keys(raw as Record<string, unknown>).sort();
-  return keys.join('');
+// ── module-private helpers ─────────────────────────────────────────
+
+function _parse<T>(
+  schema: {
+    safeParse: (raw: unknown) => { success: true; data: T } | { success: false; error: unknown };
+  },
+  raw: unknown,
+  label: string,
+): T {
+  const result = schema.safeParse(raw);
+  if (!result.success) {
+    throw new InvalidResponseError(`${label} payload did not match schema`, result.error);
+  }
+  return result.data;
+}
+
+function _parseSafe<T>(
+  schema: {
+    safeParse: (raw: unknown) => { success: true; data: T } | { success: false; error: unknown };
+  },
+  raw: unknown,
+): T | null {
+  const result = schema.safeParse(raw);
+  return result.success ? result.data : null;
+}
+
+function _isErrorEnvelope(raw: unknown): boolean {
+  return raw !== null && typeof raw === 'object' && 'error' in (raw as Record<string, unknown>);
+}
+
+function _errString(raw: unknown): string {
+  if (!raw || typeof raw !== 'object') return String(raw);
+  const o = raw as Record<string, unknown>;
+  return JSON.stringify(o);
+}
+
+function _extractSubscriptionId(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = (raw as Record<string, unknown>).subscriptionId;
+  return typeof id === 'string' && id.length > 0 ? id : null;
+}
+
+function _newUuid(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  // RFC4122 v4-ish fallback. Not security-grade; the host's
+  // audit chain doesn't care because the key is per-call.
+  let s = '';
+  for (let i = 0; i < 32; i++) {
+    const r = (Math.random() * 16) | 0;
+    s += r.toString(16);
+    if (i === 7 || i === 11 || i === 15 || i === 19) s += '-';
+  }
+  return s;
+}
+
+function _decodeBase64(b64: string): Uint8Array {
+  // Browser path — `atob` plus a manual byte unpack. Node 16+ also
+  // has `atob` on globalThis. Avoid `Buffer` so the dev-server's
+  // browser-bundle path stays clean.
+  if (typeof atob === 'function') {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  // Older Node (shouldn't happen, package.json pins >=20).
+  // Use globalThis.Buffer to avoid pulling Node types into the
+  // browser bundle.
+  const g = globalThis as unknown as {
+    Buffer?: {
+      from: (
+        s: string,
+        enc: string,
+      ) => { buffer: ArrayBuffer; byteOffset: number; byteLength: number };
+    };
+  };
+  if (g.Buffer) {
+    const buf = g.Buffer.from(b64, 'base64');
+    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+  }
+  throw new Error('no base64 decoder available — runtime missing atob and Buffer');
+}
+
+/// Reach into the bridge object for the raw `callHandler` API. Every
+/// `Bridge` is built on top of one — `HostBridge` exposes it as a
+/// private; `FetchBridge` re-implements it; test stubs provide one
+/// shaped like `{callHandler}` when needed. The car controller does
+/// not use the per-family typed surface; it speaks the raw protocol.
+function _hostApi(bridge: Bridge): CarBridgeApi {
+  // Test path: the bridge directly exposes `callHandler`.
+  const direct = bridge as Partial<CarBridgeApi> & { callHandler?: unknown };
+  if (typeof direct.callHandler === 'function') {
+    return direct as CarBridgeApi;
+  }
+  // Production path: `HostBridge` exposes its `api: HostBridgeApi`
+  // privately. Cast through the typed structural shape we know
+  // about (it's an in-package implementation detail; the production
+  // bridge construction goes through `HostBridge`).
+  const internal = bridge as unknown as { api?: { callHandler?: unknown } };
+  if (internal.api && typeof internal.api.callHandler === 'function') {
+    return internal.api as CarBridgeApi;
+  }
+  throw new BridgeTransportError(
+    'bridge does not expose a callHandler — cannot reach v2 car.* handlers',
+    bridge,
+  );
 }

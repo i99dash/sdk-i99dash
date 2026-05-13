@@ -4,35 +4,36 @@ export {
   HOST_EVENTS_GLOBAL,
   HOST_GLOBAL,
   LEGACY_HOST_GLOBAL,
+  ensureHostEvents,
   isCapabilitiesBridge,
-  isCarStatusBridge,
-  isClimateBridge,
-  isConnectivityBridge,
-  isLocationBridge,
-  isMediaBridge,
-  isNavigationBridge,
-  isSystemBridge,
-  isVehicleDiagnosticsBridge,
-  isVehicleEnvironmentBridge,
+  isCarBridge,
+  isFamilyBridge,
   resolveHostApi,
   type Bridge,
   type CapabilitiesBridge,
-  type CarStatusBridge,
-  type ClimateBridge,
-  type ConnectivityBridge,
+  type CarBridge,
+  type FamilyBridge,
   type HostBridgeApi,
-  type LocationBridge,
-  type MediaBridge,
-  type NavigationBridge,
-  type SystemBridge,
-  type VehicleDiagnosticsBridge,
-  type VehicleEnvironmentBridge,
+  type HostEventsApi,
   type WindowWithHost,
 } from './bridge.js';
 export { BootController, type BootEntry, type SetOptions as BootSetOptions } from './boot.js';
-export { CarStatusController, type CarConnectionListener, type CarStatusListener } from './car.js';
-export { ClimateController, type ClimateListener } from './climate.js';
-export { ConnectivityController, type ConnectivityListener } from './connectivity.js';
+export {
+  CAR_MAX_NAMES,
+  CarController,
+  type CarAssetBytes,
+  type CarAssetResponse,
+  type CarCatalogEntry,
+  type CarCatalogList,
+  type CarCommandResponse,
+  type CarConnectionListener,
+  type CarConnectionState,
+  type CarIdentity,
+  type CarReadResponse,
+  type CarSignalEvent,
+  type CarSignalListener,
+  type CarSubscribeResponse,
+} from './car.js';
 export {
   CursorController,
   type CursorAttachOptions,
@@ -55,9 +56,6 @@ export {
   type GestureSwipeOptions,
   type GestureTapOptions,
 } from './gesture.js';
-export { LocationController, type LocationListener } from './location.js';
-export { MediaController, type MediaListener } from './media.js';
-export { NavigationController, type NavigationListener } from './navigation.js';
 export {
   PkgController,
   type ForegroundInfo,
@@ -68,32 +66,13 @@ export {
   type UsageResult,
   type UsageRow,
 } from './pkg.js';
-export { SystemController, type SystemListener } from './system.js';
-export {
-  VehicleDiagnosticsController,
-  type VehicleDiagnosticsListener,
-} from './vehicle-diagnostics.js';
-export {
-  VehicleEnvironmentController,
-  type VehicleEnvironmentListener,
-} from './vehicle-environment.js';
 export {
   BridgeTimeoutError,
   BridgeTransportError,
   CallApiFailedError,
-  CarStatusQuotaExceededError,
-  CarStatusUnavailableError,
-  ClimateUnavailableError,
-  ConnectivityUnavailableError,
   InvalidResponseError,
-  LocationUnavailableError,
-  MediaUnavailableError,
-  NavigationUnavailableError,
   NotInsideHostError,
   SDKError,
-  SystemUnavailableError,
-  VehicleDiagnosticsUnavailableError,
-  VehicleEnvironmentUnavailableError,
   type SDKErrorCode,
 } from './errors.js';
 export { PermissionDeniedAggregator, type PermissionDeniedListener } from './permission-denied.js';
@@ -104,34 +83,11 @@ export { createClientOrSSR } from './ssr.js';
 // privileged calls" gap discovered during the SDK audit).
 export { withTimeout } from './util/timeout.js';
 
-// Re-export the wire types so a consumer only needs `@i99dash/sdk`.
+// Re-export the wire types so a consumer only needs `i99dash`.
 export type {
   MiniAppContext,
   CallApiRequest,
   CallApiResponse,
   ApiMethod,
-  CarStatus,
-  CarStatusStaleness,
-  CarConnectionState,
-  CarDoors,
-  CarDoorState,
   HostCapabilities,
-  MediaSnapshot,
-  MediaSource,
-  MediaPlayState,
-  ClimateSnapshot,
-  ClimateMode,
-  VehicleDiagnosticsSnapshot,
-  GearPosition,
-  TirePressure,
-  VehicleEnvironmentSnapshot,
-  SystemSnapshot,
-  DistanceUnit,
-  TemperatureUnit,
-  OtaStatus,
-  ConnectivitySnapshot,
-  NetworkType,
-  LocationSnapshot,
-  NavigationSnapshot,
-  NavManeuver,
 } from '../types/index.js';

@@ -1,32 +1,28 @@
 // @vitest-environment jsdom
 /// React hook tests. Mounts each hook under `<MiniAppProvider>` over
-/// a `MiniAppClient.withBridge(stub)` so the real hook code path runs
-/// — no React-side mocks. The bridge stub's notify-callback shape is
-/// the same one the production HostBridge uses.
+/// a `MiniAppClient.withBridge(stub)`. The stub satisfies the v2
+/// `CarBridge` contract — a single `callHandler(name, payload)` —
+/// so the same code paths exercise as production.
 
 import { act, render, renderHook, waitFor } from '@testing-library/react';
 import {
   CallApiFailedError,
-  CarStatusUnavailableError as _Unavail,
+  HOST_EVENTS_GLOBAL,
   MiniAppClient,
   type Bridge,
-  type CarStatus,
-  type CarStatusBridge,
-  type MediaBridge,
-  type MediaSnapshot,
+  type CarBridge,
+  type HostEventsApi,
 } from '../../runtime/index.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   MiniAppProvider,
   useCallApi,
-  useCarStatus,
+  useCarConnection,
+  useCarSignals,
   useClient,
-  useMedia,
   useMiniAppContext,
 } from '../index.js';
-
-void _Unavail;
 
 const validContext = {
   userId: 'u-1',
@@ -37,40 +33,66 @@ const validContext = {
   appId: 'fuel_prices',
 } as const;
 
-function validStatus(overrides: Partial<CarStatus> = {}): CarStatus {
-  return {
-    deviceId: 'byd:BYDMCKLE0PARD8801',
-    brand: 'byd',
-    at: '2026-04-27T12:00:00.000Z',
-    staleness: 'fresh',
-    isMoving: false,
-    speedKmh: 0,
-    doorsLocked: true,
-    batteryPct: 88,
-    ...overrides,
-  };
+interface CarHostStub {
+  bridge: CarBridge;
+  /// Dispatch a `car.signal` event via the page-installed events bus.
+  emitSignal(
+    subscriptionId: string,
+    data: { name: string; value: number | null; at: string },
+  ): void;
+  /// Dispatch a `car.connection` state change.
+  emitConnection(
+    subscriptionId: string,
+    state: 'connected' | 'degraded' | 'disconnected' | 'unknown',
+  ): void;
+  /// Last subscription id minted; tests use this to target push.
+  lastSignalId(): string;
+  lastConnectionId(): string;
 }
 
-function carStatusBridge(): {
-  bridge: CarStatusBridge;
-  notify: (raw: unknown) => void;
-} {
-  let notifyFn: ((raw: unknown) => void) | undefined;
-  const bridge: CarStatusBridge = {
+function newCarStub(): CarHostStub {
+  let signalSeq = 0;
+  let connSeq = 0;
+  let lastSignalId = '';
+  let lastConnId = '';
+  const bridge: CarBridge = {
     getContext: async () => validContext,
     callApi: async () => ({ success: true, data: null }),
-    getCarStatus: async () => validStatus(),
-    subscribeCarStatus: async (n) => {
-      notifyFn = n;
-      return { id: '1' };
+    callHandler: async (name, ..._args) => {
+      switch (name) {
+        case 'car.subscribe':
+          signalSeq++;
+          lastSignalId = `sig-${signalSeq}`;
+          return { subscriptionId: lastSignalId };
+        case 'car.unsubscribe':
+          return { subscriptionId: lastSignalId };
+        case 'car.connection.subscribe':
+          connSeq++;
+          lastConnId = `conn-${connSeq}`;
+          return { subscriptionId: lastConnId };
+        case 'car.connection.unsubscribe':
+          return { subscriptionId: lastConnId };
+        default:
+          return null;
+      }
     },
-    unsubscribeCarStatus: async () => {},
-    subscribeCarConnectionState: async () => ({ id: 'c' }),
-    unsubscribeCarConnectionState: async () => {},
   };
   return {
     bridge,
-    notify: (raw) => notifyFn?.(raw),
+    emitSignal(subscriptionId, data) {
+      const events = (window as unknown as Record<string, HostEventsApi | undefined>)[
+        HOST_EVENTS_GLOBAL
+      ];
+      events?.dispatch('car.signal', { subscriptionId, data });
+    },
+    emitConnection(subscriptionId, state) {
+      const events = (window as unknown as Record<string, HostEventsApi | undefined>)[
+        HOST_EVENTS_GLOBAL
+      ];
+      events?.dispatch('car.connection', { subscriptionId, state });
+    },
+    lastSignalId: () => lastSignalId,
+    lastConnectionId: () => lastConnId,
   };
 }
 
@@ -82,7 +104,7 @@ const wrapper = (client: MiniAppClient | null) => {
 
 describe('useClient', () => {
   it('returns the provided client', () => {
-    const client = MiniAppClient.withBridge(carStatusBridge().bridge);
+    const client = MiniAppClient.withBridge(newCarStub().bridge);
     const { result } = renderHook(() => useClient(), { wrapper: wrapper(client) });
     expect(result.current).toBe(client);
   });
@@ -95,8 +117,8 @@ describe('useClient', () => {
 
 describe('useMiniAppContext', () => {
   it('resolves to the host context', async () => {
-    const { bridge } = carStatusBridge();
-    const client = MiniAppClient.withBridge(bridge);
+    const stub = newCarStub();
+    const client = MiniAppClient.withBridge(stub.bridge);
     const { result } = renderHook(() => useMiniAppContext(), {
       wrapper: wrapper(client),
     });
@@ -115,39 +137,75 @@ describe('useMiniAppContext', () => {
   });
 });
 
-describe('useCarStatus', () => {
-  it('renders the fallback initially, then live data on event', async () => {
-    const { bridge, notify } = carStatusBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    const fallback = validStatus({ batteryPct: 1 });
-    const { result } = renderHook(() => useCarStatus({ fallback }), {
+describe('useCarSignals', () => {
+  it('renders the fallback initially, then live values on each event', async () => {
+    const stub = newCarStub();
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const { result } = renderHook(() => useCarSignals(['speed_kmh', 'battery_pct']), {
       wrapper: wrapper(client),
     });
-    expect(result.current.data?.batteryPct).toBe(1);
+    expect(result.current.values).toEqual({});
 
-    // Microtask drain + event
+    // Allow the subscribe round-trip to settle.
+    await waitFor(() => expect(stub.lastSignalId()).toBe('sig-1'));
+
     await act(async () => {
-      await Promise.resolve();
-      notify(validStatus({ batteryPct: 77 }));
+      stub.emitSignal('sig-1', {
+        name: 'speed_kmh',
+        value: 42,
+        at: '2026-04-27T12:00:00.000Z',
+      });
     });
-    expect(result.current.data?.batteryPct).toBe(77);
+    expect(result.current.values.speed_kmh).toBe(42);
+
+    await act(async () => {
+      stub.emitSignal('sig-1', {
+        name: 'battery_pct',
+        value: 77,
+        at: '2026-04-27T12:00:01.000Z',
+      });
+    });
+    expect(result.current.values.battery_pct).toBe(77);
+    expect(result.current.values.speed_kmh).toBe(42);
   });
 
-  it('keeps fallback if bridge lacks the surface', async () => {
+  it('keeps fallback if the bridge lacks callHandler', async () => {
     const plain: Bridge = {
       getContext: async () => validContext,
       callApi: async () => ({ success: true, data: null }),
     };
     const client = MiniAppClient.withBridge(plain);
-    const fallback = validStatus({ batteryPct: 50 });
-    const { result } = renderHook(() => useCarStatus({ fallback }), {
+    const fallback = { speed_kmh: 0 };
+    const { result } = renderHook(() => useCarSignals(['speed_kmh'], { fallback }), {
       wrapper: wrapper(client),
     });
     await act(async () => {
       await Promise.resolve();
     });
-    expect(result.current.data?.batteryPct).toBe(50);
-    expect(result.current.error).toBeNull();
+    // Hook caught the BridgeTransportError and stayed on fallback.
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    expect(result.current.values.speed_kmh).toBe(0);
+  });
+});
+
+describe('useCarConnection', () => {
+  it('reflects connection-state pushes', async () => {
+    const stub = newCarStub();
+    const client = MiniAppClient.withBridge(stub.bridge);
+    const { result } = renderHook(() => useCarConnection(), {
+      wrapper: wrapper(client),
+    });
+    await waitFor(() => expect(stub.lastConnectionId()).toBe('conn-1'));
+
+    await act(async () => {
+      stub.emitConnection('conn-1', 'connected');
+    });
+    expect(result.current.state).toBe('connected');
+
+    await act(async () => {
+      stub.emitConnection('conn-1', 'degraded');
+    });
+    expect(result.current.state).toBe('degraded');
   });
 });
 
@@ -200,70 +258,6 @@ describe('useCallApi', () => {
       await Promise.resolve();
     });
     expect(callApi).not.toHaveBeenCalled();
-  });
-});
-
-function validMediaSnapshot(overrides: Partial<MediaSnapshot> = {}): MediaSnapshot {
-  return {
-    title: 'Track',
-    artist: 'Artist',
-    album: 'Album',
-    artUrl: 'https://art.i99dash.app/x.png',
-    state: 'playing',
-    source: 'bluetooth',
-    volume: 0.5,
-    at: '2026-04-28T08:00:00.000Z',
-    ...overrides,
-  };
-}
-
-function mediaBridge(): { bridge: MediaBridge; notify: (raw: unknown) => void } {
-  let notifyFn: ((raw: unknown) => void) | undefined;
-  const bridge: MediaBridge = {
-    getContext: async () => validContext,
-    callApi: async () => ({ success: true, data: null }),
-    getMedia: async () => validMediaSnapshot(),
-    subscribeMedia: async (n) => {
-      notifyFn = n;
-      return { id: 'm-1' };
-    },
-    unsubscribeMedia: async () => {},
-  };
-  return { bridge, notify: (raw) => notifyFn?.(raw) };
-}
-
-describe('useMedia', () => {
-  it('renders the fallback initially, then live data on event', async () => {
-    const { bridge, notify } = mediaBridge();
-    const client = MiniAppClient.withBridge(bridge);
-    const fallback = validMediaSnapshot({ title: 'fallback' });
-    const { result } = renderHook(() => useMedia({ fallback }), {
-      wrapper: wrapper(client),
-    });
-    expect(result.current.data?.title).toBe('fallback');
-
-    await act(async () => {
-      await Promise.resolve();
-      notify(validMediaSnapshot({ title: 'live' }));
-    });
-    expect(result.current.data?.title).toBe('live');
-  });
-
-  it('keeps fallback if bridge lacks the surface', async () => {
-    const plain: Bridge = {
-      getContext: async () => validContext,
-      callApi: async () => ({ success: true, data: null }),
-    };
-    const client = MiniAppClient.withBridge(plain);
-    const fallback = validMediaSnapshot({ title: 'fb' });
-    const { result } = renderHook(() => useMedia({ fallback }), {
-      wrapper: wrapper(client),
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(result.current.data?.title).toBe('fb');
-    expect(result.current.error).toBeNull();
   });
 });
 
