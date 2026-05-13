@@ -2,6 +2,17 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [5.0.0](https://github.com/i99dash/i99dash-sdk/compare/v4.0.0...v5.0.0) (2026-05-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* v5.0.0 — single `client.car` controller, drop per-family ([#50](https://github.com/i99dash/i99dash-sdk/issues/50))
+
+### Features
+
+* v5.0.0 — single `client.car` controller, drop per-family ([#50](https://github.com/i99dash/i99dash-sdk/issues/50)) ([feb3bfc](https://github.com/i99dash/i99dash-sdk/commit/feb3bfc57615d4324830ad5de2d8772c9f8d3d67))
+
 ## [4.0.0](https://github.com/i99dash/i99dash-sdk/compare/v3.1.0...v4.0.0) (2026-05-13)
 
 
