@@ -37,6 +37,7 @@ const SDK_PUBLIC_EXPORTS = [
   'PkgController',
   'RESERVED_OVERRIDE_LABELS',
   'SDKError',
+  'SurfaceController',
   'createClientOrSSR',
   'ensureHostEvents',
   'isCapabilitiesBridge',

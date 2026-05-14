@@ -67,6 +67,12 @@ export {
   type UsageRow,
 } from './pkg.js';
 export {
+  SurfaceController,
+  type SurfaceCreateRequest,
+  type SurfaceCreateResult,
+  type SurfaceSnapshot,
+} from './surface.js';
+export {
   BridgeTimeoutError,
   BridgeTransportError,
   CallApiFailedError,
