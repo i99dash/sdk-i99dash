@@ -25,6 +25,7 @@ import { loadManifest, loadSdkConfig } from '../config/load.js';
 import { resolvedBackendUrl } from '../config/paths.js';
 import { formatIssue, validateAssets } from '../util/assets.js';
 import { logger } from '../util/logger.js';
+import type { MiniAppRequires } from '../../types/index.js';
 
 export interface ValidateOptions {
   cwd: string;
@@ -42,6 +43,12 @@ export async function runValidate(opts: ValidateOptions): Promise<void> {
   // unchanged from the historical contract of this command.
   const manifest = await loadManifest(opts.cwd);
   logger.success(`manifest.json is valid (id=${manifest.id}, version=${manifest.version})`);
+
+  // 1b. Semantic lint on `requires` — the schema accepts each field in
+  // isolation, but some combinations describe an app no car can ever
+  // satisfy (it would be hidden fleet-wide). Catch that here, not in
+  // a confused bug report three weeks later.
+  warnRequiresContradictions(manifest);
 
   // 2. Asset checks against the source tree (vanilla: appRoot; framework
   // projects may put assets in public/ — those are checked again at
@@ -144,6 +151,34 @@ async function warnAppVersionDrift(args: { cwd: string; manifestVersion: string 
       `${file}: APP_VERSION='${literal}' but manifest.version='${args.manifestVersion}' — ` +
         `the deployed mini-app's header will show the stale value. ` +
         `Update the literal or wire it from manifest.json at build time (cli.md §3).`,
+    );
+  }
+}
+
+/// Closed-form contradictions in `requires` — an app the catalog
+/// would hide on every trim. Warn (don't fail): a developer may be
+/// mid-edit, and the gate itself is enforced by `evaluateCompatibility`.
+function warnRequiresContradictions(manifest: { requires?: MiniAppRequires }): void {
+  const req = manifest.requires;
+  if (!req) return;
+
+  const onlyDi50 = req.dilink !== undefined && req.dilink.every((d) => d === 'di5.0');
+  const clusterCaps = (req.vehicleCapabilities ?? []).filter(
+    (c) => c === 'surface.write.cluster' || c === 'pkg.launch.cluster.pixel',
+  );
+
+  if (onlyDi50 && clusterCaps.length > 0) {
+    logger.warn(
+      `requires.dilink is Di5.0-only but requires.vehicleCapabilities asks for ` +
+        `${clusterCaps.join(', ')}. Di5.0 trims have no usable cluster — this app ` +
+        `would be hidden on every car. Target Di5.1 for cluster rendering.`,
+    );
+  }
+  if (onlyDi50 && req.modernWebview === true) {
+    logger.warn(
+      `requires.modernWebview is true but requires.dilink is Di5.0-only. Di5.0 ships ` +
+        `the frozen ~2022 WebView — no car satisfies both, so this app would be ` +
+        `hidden fleet-wide.`,
     );
   }
 }

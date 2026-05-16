@@ -35,6 +35,14 @@ const EXPECTED_PUBLIC_SYMBOLS = [
   'CarSignalPushEnvelopeSchema',
   'CarSubscribeResponseSchema',
 
+  // ── manifest compatibility gate ─────────────────────────────────
+  'MiniAppRequiresSchema',
+  'REQUIRES_SCHEMA',
+  'CompatTargetSchema',
+  'COMPAT_REASON_CODES',
+  'evaluateCompatibility',
+  'isCompatible',
+
   // ── runtime client ──────────────────────────────────────────────
   'MiniAppClient',
   'HostBridge',

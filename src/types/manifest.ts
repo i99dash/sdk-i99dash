@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import slugsJson from './category-slugs.json' with { type: 'json' };
+import { DILINK_FAMILIES, VEHICLE_CAPABILITIES } from './vehicle-capabilities.js';
 
 /// Two-letter locale code (`ar`, `en`, ...) → display string.
 /// At least one entry is required so the host can always render a name.
@@ -36,6 +37,56 @@ const ICON_EXT = /\.(png|svg)$/i;
 // render. Lifts a real publisher pain point: indie developers
 // hand-rolling a 1280×720 cover in raster when SVG is sufficient.
 const PHOTO_EXT = /\.(png|jpe?g|webp|svg)$/i;
+
+/// `requires.schema` version. Bump this whenever a NEW `requires.*`
+/// key is added. The contract: a manifest declaring `requires.schema`
+/// higher than an evaluator's `REQUIRES_SCHEMA` carries a hard
+/// requirement that evaluator can't reason about, so
+/// `evaluateCompatibility()` **fails closed** (hides the app) rather
+/// than silently ignoring a gate. That is why `requires` uses
+/// `.passthrough()` below — an older host/catalog must still *parse*
+/// a newer manifest (not throw) so it can apply the fail-closed rule.
+export const REQUIRES_SCHEMA = 1;
+
+/// Hard compatibility requirements. Omit the whole object for "runs
+/// on any car, degrade at runtime". Every sub-key is optional and
+/// expressed in the platform's already-canonical, drift-checked
+/// vocabularies ([DILINK_FAMILIES], [VEHICLE_CAPABILITIES]) — never
+/// implementation details like container package names. The catalog
+/// hides, and the host refuses to launch, an app whose requirements
+/// the active car doesn't meet (same enforcement model as
+/// `minHostVersion`). Evaluated centrally by
+/// `evaluateCompatibility()` so SDK, CLI, host, and backend share one
+/// implementation.
+export const MiniAppRequiresSchema = z
+  .object({
+    /// Schema version of this block (see [REQUIRES_SCHEMA]). Defaults
+    /// to the current schema when omitted.
+    schema: z.number().int().min(1).default(REQUIRES_SCHEMA),
+    /// DiLink generation allow-list, e.g. `['di5.1']`. A car whose
+    /// `dilinkFamily` is not listed (including `'unknown'`) is
+    /// incompatible.
+    dilink: z.array(z.enum(DILINK_FAMILIES)).nonempty().optional(),
+    /// Vehicle-hardware capabilities the car MUST advertise, e.g.
+    /// `['surface.write.cluster']` for a cluster app. Checked as a
+    /// branchless bitmask subset (see `hasAllCapabilities`).
+    vehicleCapabilities: z.array(z.enum(VEHICLE_CAPABILITIES)).nonempty().optional(),
+    /// `true` → the app needs a modern WebView (Chrome 100+). Di5.0
+    /// trims (frozen ~2022 WebView) are incompatible. Leave unset for
+    /// classic-IIFE/ES2019 bundles that run everywhere.
+    modernWebview: z.boolean().optional(),
+    /// Minimum host bridge protocol version (semver-ish, e.g.
+    /// `'2.0.0'`). Opaque string compared numerically by the
+    /// evaluator; an unparseable or absent host version fails closed.
+    minBridge: z.string().min(1).max(32).optional(),
+  })
+  // passthrough (NOT strict): a newer manifest may carry requires.*
+  // keys this SDK version predates. Parsing must not throw — the
+  // fail-closed `schema` check in evaluateCompatibility() handles
+  // forward-compat gracefully instead.
+  .passthrough();
+
+export type MiniAppRequires = z.infer<typeof MiniAppRequiresSchema>;
 
 /// The manifest row for a mini-app — the durable identity + metadata
 /// the host's catalog stores and launches from. Every field here is
@@ -117,6 +168,26 @@ export const MiniAppManifestSchema = z.object({
   /// if the app is read-only, glanceable, no text input / video /
   /// interactive map.
   safeWhileDriving: z.boolean().default(false),
+
+  /// Hard car/host compatibility requirements. Omit for "runs on any
+  /// car". See [MiniAppRequiresSchema]; enforced via
+  /// `evaluateCompatibility()` by the catalog (hide) and host (refuse
+  /// launch).
+  requires: MiniAppRequiresSchema.optional(),
+
+  /// Host permission scopes the app uses (e.g. `'location.read'`).
+  /// Open list by design — scopes append as the host ships handlers,
+  /// mirroring `HostCapabilities.families` (no closed enum, so a new
+  /// scope never needs an SDK release). Informational for the catalog
+  /// / consent UI; the host arbitrates the actual grant at call time.
+  permissions: z.array(z.string().min(1).max(64)).max(32).optional(),
+
+  /// Privileged app (uses the admin bridge — `pkg.*`, `sys.*`,
+  /// `diag.*`, `fs.*`). Default `false`. This is a **distribution**
+  /// gate (catalog ACL decides who may install it), distinct from the
+  /// vehicle-compat gate in `requires`; `evaluateCompatibility()`
+  /// deliberately does not consider it.
+  privileged: z.boolean().default(false),
 });
 
 export type MiniAppManifest = z.infer<typeof MiniAppManifestSchema>;
