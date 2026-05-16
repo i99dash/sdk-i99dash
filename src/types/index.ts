@@ -14,8 +14,22 @@ export {
   type LocaleMap,
   MiniAppManifestSchema,
   type MiniAppManifest,
+  MiniAppRequiresSchema,
+  type MiniAppRequires,
+  REQUIRES_SCHEMA,
   CATEGORY_SLUGS,
 } from './manifest.js';
+
+export {
+  CompatTargetSchema,
+  type CompatTarget,
+  COMPAT_REASON_CODES,
+  type CompatReasonCode,
+  type CompatReason,
+  type CompatResult,
+  evaluateCompatibility,
+  isCompatible,
+} from './compat.js';
 
 export {
   CarAssetResponseSchema,
