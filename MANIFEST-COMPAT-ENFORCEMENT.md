@@ -87,3 +87,44 @@ Adding a new hard requirement = one coordinated change:
 - "Runs anywhere, degrades" → omit `requires` entirely.
 - `i99dash validate` already warns on contradictory combinations
   (e.g. Di5.0-only + a cluster capability).
+
+## Gate B — WebView baseline (static, build/publish enforced)
+
+`requires.modernWebview` / `evaluateCompatibility` (above) is **Gate
+A**: a _declaration_ the catalog/host use to HIDE a Di5.1-only app
+from Di5.0 cars. It does not stop an author who simply _forgets_ to
+declare it from shipping ES2023+/Chrome-96+ code that passes Gate A
+and then crashes on a Di5.0 car. **Gate B** closes that hole by
+statically proving the shipped JS actually runs on the oldest
+supported WebView.
+
+- **Single source:** `WEBVIEW_BASELINE` + `checkWebviewBaseline()`
+  (`src/types/webview-baseline.ts`, exported from the `i99dash` root —
+  same posture as `evaluateCompatibility`). Any host/backend port
+  reads THESE constants; the floor never drifts between layers.
+- **Floor:** Di5.0 (Leopard 5 / Song PLUS) ships
+  `com.android.webview 95.0.4638.74` = **Chromium 95**. Chromium 95
+  runs all ES2022 _syntax_ (optional chaining, `??`, logical
+  assignment, private methods, class static blocks, `.at()`,
+  top-level await). So `WEBVIEW_BASELINE.ecmaVersion = 2022` — an
+  es2019 parser would _wrongly reject valid Di5.0 code_. The real
+  Di5.0 gaps are (1) ES-module loading in the mini-app WebView host
+  and (2) Chrome-96+ runtime APIs (`structuredClone` 98,
+  `Array.findLast` 97, `Promise.withResolvers` 119, …). So Gate B =
+  ES2022 syntax ceiling + classic/IIFE format + an API denylist.
+- **Enforcement:** `runBuild()` globs every shipped `*.{js,mjs,cjs}`
+  in the build output and runs `checkWebviewBaseline`. A violation
+  **hard-fails `build` (and therefore `publish`)** —
+  `WebviewBaselineError`, fail-closed. `validate` is unchanged
+  (pre-build it has no bundle to inspect).
+- **Escape hatch (keeps A+B one policy):** if the manifest _explicitly_
+  declares the app Di5.1-only (`requires.modernWebview: true`, or a
+  `requires.dilink` allow-list excluding `di5.0`), Gate A already
+  hides it on Di5.0, so Gate B downgrades violations to an info note
+  instead of failing. So: stay within the baseline → runs on **5.0
+  and 5.1** from one bundle; OR declare modernWebview → Gate A
+  excludes you from 5.0. There is no third, broken state.
+- **The rule, restated:** a mini-app must not use JS above the
+  Chromium-95 floor unless it explicitly opts out of Di5.0 — now
+  _enforced_, not just documented. Floor bump = change the one
+  `WEBVIEW_BASELINE` constant.

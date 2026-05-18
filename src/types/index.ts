@@ -32,6 +32,14 @@ export {
 } from './compat.js';
 
 export {
+  WEBVIEW_BASELINE,
+  type WebviewBaselineViolationKind,
+  type WebviewBaselineViolation,
+  type WebviewBaselineResult,
+  checkWebviewBaseline,
+} from './webview-baseline.js';
+
+export {
   CarAssetResponseSchema,
   type CarAssetResponse,
   CarCatalogEntrySchema,
