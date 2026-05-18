@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [5.3.0](https://github.com/i99dash/i99dash-sdk/compare/v5.2.0...v5.3.0) (2026-05-18)
+
+
+### Features
+
+* **compat:** Gate B — enforce the Di5.0 (Chromium 95) WebView baseline at build/publish ([#58](https://github.com/i99dash/i99dash-sdk/issues/58)) ([342c282](https://github.com/i99dash/i99dash-sdk/commit/342c2828a459433c3ef5d9dfeac0c996df51907c))
+
 ## [5.2.0](https://github.com/i99dash/i99dash-sdk/compare/v5.1.0...v5.2.0) (2026-05-16)
 
 
