@@ -21,7 +21,13 @@ export type LocaleMap = z.infer<typeof LocaleMapSchema>;
 /// in lockstep.
 export const CATEGORY_SLUGS = slugsJson as readonly string[];
 
-const assetPath = (extPattern: RegExp, label: string) =>
+/// Builds the canonical "bundle-relative asset path" validator used by
+/// every manifest field that points at a packaged file (`icon`,
+/// `coverImage`, `screenshots[]`, theme `wallpaper.*`). Exported so the
+/// theme manifest (`theme-manifest.ts`) reuses the EXACT same rules —
+/// relative, must start `./`, no `..` traversal, ≤256 chars — instead
+/// of re-deriving a near-identical regex that could drift.
+export const assetPath = (extPattern: RegExp, label: string) =>
   z
     .string()
     .min(3)
@@ -30,13 +36,13 @@ const assetPath = (extPattern: RegExp, label: string) =>
     .refine((p) => !p.split('/').includes('..'), `${label} must not traverse parent directories`)
     .refine((p) => extPattern.test(p), `${label} extension must be one of ${extPattern.source}`);
 
-const ICON_EXT = /\.(png|svg)$/i;
+export const ICON_EXT = /\.(png|svg)$/i;
 // PHOTO_EXT covers raster + SVG: the host's MiniAppRemoteImage routes
 // SVG via flutter_svg (Android's ImageDecoder rejects SVG with
 // `unimplemented`), so vector mockups + raster screenshots both
 // render. Lifts a real publisher pain point: indie developers
 // hand-rolling a 1280×720 cover in raster when SVG is sufficient.
-const PHOTO_EXT = /\.(png|jpe?g|webp|svg)$/i;
+export const PHOTO_EXT = /\.(png|jpe?g|webp|svg)$/i;
 
 /// `requires.schema` version. Bump this whenever a NEW `requires.*`
 /// key is added. The contract: a manifest declaring `requires.schema`
