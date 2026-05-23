@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [5.4.0](https://github.com/i99dash/i99dash-sdk/compare/v5.3.0...v5.4.0) (2026-05-23)
+
+
+### Features
+
+* **themes:** add ThemeSpec/ThemeManifest schemas + theme CLI ([#60](https://github.com/i99dash/i99dash-sdk/issues/60)) ([92bc7f8](https://github.com/i99dash/i99dash-sdk/commit/92bc7f84ba66f017ab3b67e812333f4bb697d807))
+
 ## [5.3.0](https://github.com/i99dash/i99dash-sdk/compare/v5.2.0...v5.3.0) (2026-05-18)
 
 
