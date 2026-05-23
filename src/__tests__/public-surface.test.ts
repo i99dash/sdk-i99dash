@@ -43,6 +43,17 @@ const EXPECTED_PUBLIC_SYMBOLS = [
   'evaluateCompatibility',
   'isCompatible',
 
+  // ── theme marketplace ───────────────────────────────────────────
+  'THEME_SCHEMA',
+  'THEME_CATEGORY_SLUGS',
+  'ThemeColorsSchema',
+  'ThemeWallpaperSchema',
+  'ThemeTypographySchema',
+  'ThemeShapeSchema',
+  'ThemeGaugeSchema',
+  'ThemeSpecSchema',
+  'ThemeManifestSchema',
+
   // ── runtime client ──────────────────────────────────────────────
   'MiniAppClient',
   'HostBridge',
@@ -95,6 +106,13 @@ describe('public surface', () => {
   it('exposes CATEGORY_SLUGS as the canonical category list', () => {
     expect(Array.isArray(i99dash.CATEGORY_SLUGS)).toBe(true);
     expect(i99dash.CATEGORY_SLUGS.length).toBeGreaterThan(0);
+  });
+
+  it('exposes THEME_CATEGORY_SLUGS as the canonical theme category list', () => {
+    expect(Array.isArray(i99dash.THEME_CATEGORY_SLUGS)).toBe(true);
+    expect(i99dash.THEME_CATEGORY_SLUGS.length).toBeGreaterThan(0);
+    // Distinct from the mini-app list (themes have their own taxonomy).
+    expect(i99dash.THEME_CATEGORY_SLUGS).toContain('neon');
   });
 
   // Subpath exports: the runtime client + admin live at the root,

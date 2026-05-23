@@ -54,7 +54,7 @@ export default defineConfig({
     // `src/cli/templates/<name>/` that mirrors what `init` writes
     // into the user's project. The vanilla template is generated
     // inline (string templates), so it doesn't need a copy step.
-    const TEMPLATE_DIRS = ['cluster-widget'];
+    const TEMPLATE_DIRS = ['cluster-widget', 'theme'];
     for (const tpl of TEMPLATE_DIRS) {
       const src = resolve(HERE, 'src/cli/templates', tpl);
       const dst = resolve(HERE, 'dist/cli/templates', tpl);

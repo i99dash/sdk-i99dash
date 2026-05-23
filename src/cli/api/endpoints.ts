@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { MiniAppManifestSchema, type MiniAppManifest } from '../../types/index.js';
+import {
+  MiniAppManifestSchema,
+  type MiniAppManifest,
+  ThemeManifestSchema,
+  type ThemeManifest,
+} from '../../types/index.js';
 
 import type { ApiClient } from './client.js';
 
@@ -65,6 +70,41 @@ export async function submitManifest(
   return api.post(
     '/api/v1/mini-apps/submit',
     { manifest: MiniAppManifestSchema.parse(manifest), bundleId },
+    (body) => SubmitResponseSchema.parse(body),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Theme-marketplace endpoints (mirror the mini-app upload-url + submit
+// pair). Backend: ``app/api/v1/themes_publish`` (Pydantic). The wire
+// shapes are intentionally identical to the mini-app ones so the publish
+// flow is the same two round-trips — only the path + manifest schema
+// differ.
+// ---------------------------------------------------------------------------
+
+export interface ThemeUploadUrlRequest {
+  /// The theme id (`theme.json` `id`). Backend scopes the presigned key
+  /// under `themes/<id>/<version>/`.
+  themeId: string;
+  contentLength: number;
+  sha256: string;
+}
+
+export async function requestThemeUploadUrl(
+  api: ApiClient,
+  req: ThemeUploadUrlRequest,
+): Promise<UploadUrlResponse> {
+  return api.post('/api/v1/themes/upload-url', req, (body) => UploadUrlResponseSchema.parse(body));
+}
+
+export async function submitThemeManifest(
+  api: ApiClient,
+  manifest: ThemeManifest,
+  bundleId: string,
+): Promise<SubmitResponse> {
+  return api.post(
+    '/api/v1/themes/submit',
+    { manifest: ThemeManifestSchema.parse(manifest), bundleId },
     (body) => SubmitResponseSchema.parse(body),
   );
 }

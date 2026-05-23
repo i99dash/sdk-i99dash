@@ -20,4 +20,12 @@ export { runPublish } from './commands/publish.js';
 export { runStatus } from './commands/status.js';
 export { runValidate } from './commands/validate.js';
 export { runWhoami } from './commands/whoami.js';
+
+// Theme-marketplace commands (mirror the mini-app init/build/validate/
+// publish quartet). Surfaced under the `theme` command group in cli.ts.
+export { runThemeInit } from './commands/theme-init.js';
+export { runThemeBuild, themeBundleName } from './commands/theme-build.js';
+export { runThemeValidate, ThemeValidationFailedError } from './commands/theme-validate.js';
+export { runThemePublish } from './commands/theme-publish.js';
+
 export * from './util/errors.js';

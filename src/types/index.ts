@@ -21,6 +21,25 @@ export {
 } from './manifest.js';
 
 export {
+  THEME_SCHEMA,
+  THEME_CATEGORY_SLUGS,
+  ThemeColorsSchema,
+  type ThemeColors,
+  ThemeWallpaperSchema,
+  type ThemeWallpaper,
+  ThemeTypographySchema,
+  type ThemeTypography,
+  ThemeShapeSchema,
+  type ThemeShape,
+  ThemeGaugeSchema,
+  type ThemeGauge,
+  ThemeSpecSchema,
+  type ThemeSpec,
+  ThemeManifestSchema,
+  type ThemeManifest,
+} from './theme-manifest.js';
+
+export {
   CompatTargetSchema,
   type CompatTarget,
   COMPAT_REASON_CODES,

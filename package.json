@@ -63,6 +63,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:category-drift": "node scripts/check-category-drift.mjs",
+    "check:theme-category-drift": "node scripts/check-theme-category-drift.mjs",
     "check:driver-label-contract": "node scripts/check-driver-label-contract.mjs",
     "clean": "rimraf dist"
   },

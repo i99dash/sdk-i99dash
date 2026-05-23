@@ -58,6 +58,17 @@ export const SCREENSHOT_RULES: AssetRules = {
   maxDimensions: { width: 1920, height: 1080 },
 };
 
+/// Theme wallpaper rules. A wallpaper is a full-bleed background painted
+/// behind the home / cluster surfaces, so it's allowed to be larger than
+/// a screenshot. Capped at the largest car display (Leopard-8 IVI is
+/// 1920×1080; the cluster is smaller) plus headroom for hi-dpi sources,
+/// and 2 MB so a single uncompressed PNG doesn't bloat the bundle.
+export const WALLPAPER_RULES: AssetRules = {
+  extensions: ['.png', '.jpg', '.jpeg', '.webp', '.svg'],
+  maxBytes: 2 * 1024 * 1024,
+  maxDimensions: { width: 2560, height: 1440 },
+};
+
 /// Walks the manifest and returns the asset specs the dev declared.
 /// Optional fields produce no spec when absent.
 export function specsFromManifest(manifest: MiniAppManifest): AssetSpec[] {
@@ -94,10 +105,22 @@ export async function validateAssets(
   manifest: MiniAppManifest,
   opts: ValidateAssetsOptions,
 ): Promise<AssetIssue[]> {
+  return validateAssetSpecs(specsFromManifest(manifest), opts);
+}
+
+/// Lower-level: validate an explicit list of [AssetSpec]s against a
+/// root dir. `validateAssets` (mini-app) delegates here after building
+/// specs from a `MiniAppManifest`; the theme commands build their own
+/// spec list (icon/cover/screenshots/wallpaper.*) and reuse this so the
+/// SAME locked thresholds + traversal guards apply to both surfaces.
+export async function validateAssetSpecs(
+  specs: AssetSpec[],
+  opts: ValidateAssetsOptions,
+): Promise<AssetIssue[]> {
   const issues: AssetIssue[] = [];
   const root = resolve(opts.rootDir);
 
-  for (const spec of specsFromManifest(manifest)) {
+  for (const spec of specs) {
     if (isAbsolute(spec.relPath) || spec.relPath.split('/').includes('..')) {
       // Schema already rejects these — defence in depth in case the schema
       // ever drifts out of sync with this util.

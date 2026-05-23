@@ -39,8 +39,13 @@ import {
   runStatus,
   runValidate,
   runWhoami,
+  runThemeInit,
+  runThemeBuild,
+  runThemeValidate,
+  runThemePublish,
 } from './cli/index.js';
 import { logger, setQuiet, setVerbose } from './cli/util/logger.js';
+import { THEME_CATEGORY_SLUGS } from './types/index.js';
 
 // Read version from the bundled package.json so `--version` stays in
 // sync with the published tarball without manual bumps each release.
@@ -203,6 +208,57 @@ program
   );
 
 program.addCommand(makeBetaCommand());
+
+// ── theme command group ───────────────────────────────────────────
+// Mirrors the mini-app init/build/validate/publish quartet, grouped
+// under `i99dash theme <sub>` so the top-level surface stays uncluttered
+// and a theme author has a clear, separate entry point. The subcommand
+// runners live in `src/cli/commands/theme-*.ts`.
+const theme = program.command('theme').description('build and publish i99dash themes');
+
+theme
+  .command('init [dir]')
+  .description('scaffold a new theme project (theme.json + icon + wallpaper note)')
+  .option('-f, --force', 'overwrite a non-empty target dir', false)
+  .option('-y, --yes', 'accept defaults; skip the category prompt', false)
+  .option(
+    '--category <slug>',
+    `pre-answer the category (one of ${THEME_CATEGORY_SLUGS.join(', ')})`,
+  )
+  .action(
+    async (dir: string | undefined, opts: { force: boolean; yes: boolean; category?: string }) => {
+      await runThemeInit({
+        cwd: process.cwd(),
+        dir: dir ?? 'my-theme',
+        force: opts.force,
+        yes: opts.yes,
+        ...(opts.category !== undefined ? { category: opts.category } : {}),
+      });
+    },
+  );
+
+theme
+  .command('validate')
+  .description('zod-validate theme.json + check declared assets')
+  .action(async () => {
+    await runThemeValidate({ cwd: process.cwd() });
+  });
+
+theme
+  .command('build')
+  .description('build a deterministic .i99theme bundle (tar.gz)')
+  .option('-o, --out <dir>', 'output directory (default: dist)')
+  .action(async (opts: { out?: string }) => {
+    await runThemeBuild({ cwd: process.cwd(), out: opts.out });
+  });
+
+theme
+  .command('publish')
+  .description('validate, build, upload, and register the theme with the catalog')
+  .option('--dry-run', 'run validation + build; do not upload', false)
+  .action(async (opts: { dryRun: boolean }) => {
+    await runThemePublish({ cwd: process.cwd(), dryRun: opts.dryRun });
+  });
 
 async function main(): Promise<void> {
   try {
