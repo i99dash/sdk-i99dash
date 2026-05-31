@@ -37,6 +37,7 @@ import {
   runLogout,
   runPublish,
   runStatus,
+  runUpgrade,
   runValidate,
   runWhoami,
   runThemeInit,
@@ -133,6 +134,14 @@ program
   .description('show your developer-lifecycle snapshot (apps + review status + active keys)')
   .action(async (appId: string | undefined) => {
     await runStatus({ appId });
+  });
+
+program
+  .command('upgrade')
+  .description('update the i99dash CLI to the latest published version')
+  .option('--check', 'only check whether a newer version exists', false)
+  .action(async (opts: { check?: boolean }) => {
+    await runUpgrade({ currentVersion: pkg.version, checkOnly: opts.check ?? false });
   });
 
 program
