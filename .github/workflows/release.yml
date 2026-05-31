@@ -161,3 +161,79 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
         run: npm publish --access public
+
+      # ── Standalone CLI binaries + download manifest ──────────────────
+      # The importable SDK ships on npm (above); the `i99dash` CLI ALSO
+      # ships as download-and-run per-OS binaries (like i99op) so users
+      # without Node can install it and `i99dash upgrade` in place. We
+      # compile the CJS bundle with @yao-pkg/pkg (keytar is a dynamic
+      # optional import — absent in the binary, the keychain falls back to
+      # its encrypted file). All gated on PORTAL_ENABLED so releases stay
+      # green until the secrets are provisioned.
+      - name: Compile standalone CLI binaries
+        if: ${{ vars.PORTAL_ENABLED == 'true' }}
+        working-directory: i99dash-sdk
+        run: |
+          mkdir -p build-bin
+          for spec in \
+            "node20-linux-x64 i99dash-linux-x64" \
+            "node20-macos-arm64 i99dash-macos-arm64" \
+            "node20-macos-x64 i99dash-macos-x64" \
+            "node20-win-x64 i99dash-windows-x64.exe"; do
+            set -- $spec
+            echo "pkg → $2 ($1)"
+            npx -y @yao-pkg/pkg dist/cli.cjs --targets "$1" --output "build-bin/$2"
+          done
+          ls -la build-bin
+
+      - name: Mirror binaries to Spaces CDN + register downloads
+        if: ${{ vars.PORTAL_ENABLED == 'true' }}
+        working-directory: i99dash-sdk
+        env:
+          SPACES_KEY: ${{ secrets.RELEASES_SPACES_KEY }}
+          SPACES_SECRET: ${{ secrets.RELEASES_SPACES_SECRET }}
+          PORTAL_URL: ${{ vars.PORTAL_URL }}
+          PORTAL_TOKEN: ${{ secrets.PORTAL_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          sudo apt-get install -y -qq s3cmd jq
+          VERSION="${TAG#v}"
+          CDN="https://i99dash-miniapps.fra1.cdn.digitaloceanspaces.com"
+          S3_ARGS=(
+            --access_key="$SPACES_KEY"
+            --secret_key="$SPACES_SECRET"
+            --host=fra1.digitaloceanspaces.com
+            --host-bucket='%(bucket)s.fra1.digitaloceanspaces.com'
+            --acl-public
+          )
+          assets='[]'
+          for f in build-bin/*; do
+            base=$(basename "$f")
+            case "$base" in
+              *windows-x64.exe) plat=windows-x64 ;;
+              *linux-x64)       plat=linux-x64 ;;
+              *macos-arm64)     plat=macos-arm64 ;;
+              *macos-x64)       plat=macos-x64 ;;
+              *) echo "skip $base"; continue ;;
+            esac
+            s3cmd "${S3_ARGS[@]}" put "$f" "s3://i99dash-miniapps/cli-releases/$VERSION/$base"
+            sha=$(sha256sum "$f" | awk '{print $1}')
+            size=$(stat -c%s "$f")
+            assets=$(echo "$assets" | jq \
+              --arg p "$plat" --arg u "$CDN/cli-releases/$VERSION/$base" \
+              --arg s "$sha" --argjson z "$size" --arg fn "$base" \
+              '. + [{platform:$p,url:$u,sha256:$s,sizeBytes:$z,filename:$fn}]')
+          done
+
+          post() { curl -fSL -X POST "$PORTAL_URL/api/v1/admin/downloads" \
+              -H "Authorization: Bearer $PORTAL_TOKEN" -H "Content-Type: application/json" \
+              --retry 5 --retry-all-errors --retry-delay 10 -d @-; }
+
+          # CLI binaries
+          jq -n --arg version "$VERSION" --arg notes "i99dash CLI $VERSION" --argjson assets "$assets" \
+            '{kind:"cli_i99dash", version:$version, notes:$notes, assets:$assets}' | post
+          # SDK (npm) — no binary; the install command IS the artifact
+          jq -n --arg version "$VERSION" \
+            '{kind:"sdk", version:$version, notes:("i99dash SDK "+$version+" — npm package"),
+              installCommand:"npm install i99dash",
+              homepageUrl:"https://www.npmjs.com/package/i99dash", assets:[]}' | post

@@ -18,6 +18,7 @@ export { runLogin } from './commands/login.js';
 export { runLogout } from './commands/logout.js';
 export { runPublish } from './commands/publish.js';
 export { runStatus } from './commands/status.js';
+export { runUpgrade } from './commands/upgrade.js';
 export { runValidate } from './commands/validate.js';
 export { runWhoami } from './commands/whoami.js';
 

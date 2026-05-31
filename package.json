@@ -45,6 +45,14 @@
   "bin": {
     "i99dash": "./dist/cli.js"
   },
+  "pkg": {
+    "//": "Standalone-binary build (@yao-pkg/pkg). Compiles the CJS CLI bundle so a download-and-run binary needs no Node. keytar is a dynamic optional import — absent in the binary, the keychain falls back to its encrypted file. Embed the init templates + package.json (read for --version).",
+    "scripts": [],
+    "assets": [
+      "dist/cli/templates/**/*",
+      "package.json"
+    ]
+  },
   "files": [
     "dist",
     "README.md",
