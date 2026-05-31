@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [5.5.0](https://github.com/i99dash/i99dash-sdk/compare/v5.4.0...v5.5.0) (2026-05-31)
+
+
+### Features
+
+* **cli:** standalone i99dash binaries + upgrade self-update ([#63](https://github.com/i99dash/i99dash-sdk/issues/63)) ([b657dba](https://github.com/i99dash/i99dash-sdk/commit/b657dba970672b246b6cdfac7a640acbb5dfcf1a))
+
 ## [5.4.0](https://github.com/i99dash/i99dash-sdk/compare/v5.3.0...v5.4.0) (2026-05-23)
 
 
