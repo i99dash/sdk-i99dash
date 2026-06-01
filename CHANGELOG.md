@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [5.6.0](https://github.com/i99dash/i99dash-sdk/compare/v5.5.1...v5.6.0) (2026-06-01)
+
+
+### Features
+
+* **cli:** SSH-key login replaces device-code; OpenSSL-3 + CJS-bundle fixes ([#67](https://github.com/i99dash/i99dash-sdk/issues/67)) ([56678bd](https://github.com/i99dash/i99dash-sdk/commit/56678bd7e365f7bd8f826401ae13a3726c80c53f))
+
 ## [5.5.1](https://github.com/i99dash/i99dash-sdk/compare/v5.5.0...v5.5.1) (2026-05-31)
 
 
