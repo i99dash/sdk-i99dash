@@ -112,16 +112,14 @@ program
   .option('--passphrase <pass>', 'passphrase for an encrypted key')
   .option('--token <token>', 'paste a credential directly, skipping the SSH flow')
   .option('--ci', 'CI-only guard; prompts you to set I99DASH_API_KEY instead', false)
-  .action(
-    async (opts: { key?: string; passphrase?: string; token?: string; ci: boolean }) => {
-      await runLogin({
-        ci: opts.ci,
-        key: opts.key,
-        passphrase: opts.passphrase,
-        token: opts.token,
-      });
-    },
-  );
+  .action(async (opts: { key?: string; passphrase?: string; token?: string; ci: boolean }) => {
+    await runLogin({
+      ci: opts.ci,
+      key: opts.key,
+      passphrase: opts.passphrase,
+      token: opts.token,
+    });
+  });
 
 program
   .command('logout')
