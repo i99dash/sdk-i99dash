@@ -12,7 +12,7 @@ interface RunStatusOptions {
 /**
  * `i99dash status [app_id]` — single round-trip snapshot of the
  * developer's lifecycle: developer-access state, apps with review
- * status, live API keys, and any recent notification-delivery errors.
+ * status, and any recent notification-delivery errors.
  *
  * Renders as a compact terminal report. The backend caps the apps
  * array at 50; `appsTotal > 50` triggers a "showing 50 of N — use
@@ -51,16 +51,6 @@ function printStatus(s: DevStatus): void {
       logger.info(
         `  (showing ${s.apps.length} of ${s.appsTotal} — pass an app_id to see one specifically)`,
       );
-    }
-  }
-
-  if (s.keys.length === 0) {
-    logger.info('No active API keys.');
-  } else {
-    logger.info(`Active keys (${s.keys.length}):`);
-    for (const key of s.keys) {
-      const lastUsed = key.lastUsedAt ? formatRelative(key.lastUsedAt) : 'never';
-      logger.info(`  ${key.label.padEnd(24)} last used: ${lastUsed}`);
     }
   }
 }

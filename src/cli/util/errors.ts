@@ -11,7 +11,7 @@ export abstract class CLIError extends Error {
   }
 }
 
-/// No API key / keychain miss. Exit 2.
+/// Not logged in / keychain miss. Exit 2.
 export class NotAuthenticatedError extends CLIError {
   override readonly exitCode = 2;
   constructor(detail = 'not logged in; run `i99dash login` first') {

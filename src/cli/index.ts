@@ -11,6 +11,7 @@
 
 export { runBuild } from './commands/build.js';
 export { makeBetaCommand } from './commands/beta.js';
+export { makeKeysCommand } from './commands/keys.js';
 export { runDev } from './commands/dev.js';
 export { runDoctor } from './commands/doctor.js';
 export { runInit, TEMPLATES, type TemplateName } from './commands/init.js';

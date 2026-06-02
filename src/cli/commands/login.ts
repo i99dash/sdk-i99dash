@@ -7,7 +7,7 @@ import { ServerError } from '../util/errors.js';
 import { logger } from '../util/logger.js';
 
 export interface LoginOptions {
-  /// CI mode — don't attempt login. Callers that set `I99DASH_API_KEY`
+  /// CI mode — don't attempt login. Callers that set `I99DASH_TOKEN`
   /// bypass `login` entirely; this flag is an explicit "don't do
   /// anything" toggle for scripts that accidentally invoked `login`.
   ci: boolean;
@@ -25,7 +25,7 @@ export interface LoginOptions {
 /// add a key before it's authenticated (the GitHub model).
 export async function runLogin(opts: LoginOptions): Promise<void> {
   if (opts.ci) {
-    logger.info('`--ci` passed; set I99DASH_API_KEY in env instead of running login.');
+    logger.info('`--ci` passed; set I99DASH_TOKEN in env instead of running login.');
     return;
   }
 

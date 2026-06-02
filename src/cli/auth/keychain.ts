@@ -148,7 +148,7 @@ class CompositeKeychain implements KeychainStore {
           await this.secure.set(fromFile);
           await this.file.clear();
           logger.info(
-            `migrated API key from ${FALLBACK_FILE} into the OS keychain; plaintext copy removed.`,
+            `migrated access token from ${FALLBACK_FILE} into the OS keychain; plaintext copy removed.`,
           );
         } catch {
           // Migration is best-effort. If the secure write fails for
@@ -175,7 +175,7 @@ class CompositeKeychain implements KeychainStore {
     } else {
       logger.warn(
         `OS keychain unavailable on ${platform()}; falling back to ${FALLBACK_FILE} (mode 0600). ` +
-          `Install keytar prerequisites to keep the API key out of your home directory.`,
+          `Install keytar prerequisites to keep the access token out of your home directory.`,
       );
       await this.file.set(value);
     }

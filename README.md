@@ -17,16 +17,16 @@ console.log(ctx.locale);
 
 ## What's in the box
 
-| Surface                                                                        | Where                                                    |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| Runtime client (car status, media, climate, navigation, …)                     | `import { MiniAppClient } from 'i99dash'`                |
-| Privileged admin client (`pm.disable_user`, `diag.tail_logs`, …)               | `import { AdminClient } from 'i99dash'`                  |
-| Wire-shape zod schemas + types                                                 | `import { MiniAppManifestSchema } from 'i99dash'`        |
-| React bindings (`<MiniAppProvider>`, `useCarStatus`, …)                        | `import { MiniAppProvider } from 'i99dash/react'`        |
-| Local dev-server (mock host + bridge shim + fixture watcher)                   | `import { startDevServer } from 'i99dash/dev-server'`    |
-| CLI (`init`, `login`, `dev`, `validate`, `build`, `publish`, `doctor`, `beta`) | `i99dash <command>` after install, or `pnpm dlx i99dash` |
+| Surface                                                                                | Where                                                    |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Runtime client (car status, media, climate, navigation, …)                             | `import { MiniAppClient } from 'i99dash'`                |
+| Privileged admin client (`pm.disable_user`, `diag.tail_logs`, …)                       | `import { AdminClient } from 'i99dash'`                  |
+| Wire-shape zod schemas + types                                                         | `import { MiniAppManifestSchema } from 'i99dash'`        |
+| React bindings (`<MiniAppProvider>`, `useCarStatus`, …)                                | `import { MiniAppProvider } from 'i99dash/react'`        |
+| Local dev-server (mock host + bridge shim + fixture watcher)                           | `import { startDevServer } from 'i99dash/dev-server'`    |
+| CLI (`init`, `login`, `keys`, `dev`, `validate`, `build`, `publish`, `doctor`, `beta`) | `i99dash <command>` after install, or `pnpm dlx i99dash` |
 
-The runtime client makes **zero network calls on its own** — it only proxies what your code requests through `callApi`. The CLI phones home for OAuth token mint and publish uploads. No telemetry.
+The runtime client makes **zero network calls on its own** — it only proxies what your code requests through `callApi`. The CLI phones home for SSH-key login (challenge/verify) and publish uploads. No telemetry.
 
 ## Quickstart
 

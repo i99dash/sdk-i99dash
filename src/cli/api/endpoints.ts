@@ -125,13 +125,43 @@ export async function listMyApps(api: ApiClient): Promise<MyApps> {
   return api.get('/api/v1/mini-apps/mine', (body) => MyAppsSchema.parse(body));
 }
 
-/// Revoke the API key that authenticated this request. Powers
-/// `i99dash logout --revoke` — the CLI doesn't know its own
-/// key_id locally, so the backend resolves it from the Bearer
-/// header and revokes that specific row. Returns void (204 on
-/// success); the caller swallows non-2xx so logout never errors.
-export async function revokeCurrentKey(api: ApiClient): Promise<void> {
-  await api.post('/api/v1/dev/keys/me/revoke', {}, () => undefined);
+// ---------------------------------------------------------------------------
+// SSH-key management — the CLI login credential. Bootstrap your FIRST key
+// in the web console (Account → SSH keys); once logged in you can manage
+// the rest here. Backend: ``app/api/v1/ssh_keys/routes.py`` (/account/ssh-keys).
+// ---------------------------------------------------------------------------
+
+const SshKeySchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  fingerprint: z.string().min(1),
+  keyType: z.string(),
+  createdAt: z.string(),
+  lastUsedAt: z.string().nullable().optional(),
+});
+export type SshKey = z.infer<typeof SshKeySchema>;
+
+const SshKeyListSchema = z.object({ keys: z.array(SshKeySchema) });
+
+/// List the caller's registered SSH public keys.
+export async function listSshKeys(api: ApiClient): Promise<SshKey[]> {
+  const res = await api.get('/api/v1/account/ssh-keys', (body) => SshKeyListSchema.parse(body));
+  return res.keys;
+}
+
+/// Register an OpenSSH public key on the caller's account. ``name`` is a
+/// free-text label; ``publicKey`` is the one-line ``ssh-ed25519 AAAA...``
+/// string (the contents of a ``.pub`` file).
+export async function addSshKey(api: ApiClient, publicKey: string, name: string): Promise<SshKey> {
+  return api.post('/api/v1/account/ssh-keys', { public_key: publicKey, name }, (body) =>
+    SshKeySchema.parse(body),
+  );
+}
+
+/// Revoke one of the caller's SSH keys by id. Login with that key fails
+/// on the next request.
+export async function removeSshKey(api: ApiClient, keyId: string): Promise<void> {
+  await api.delete(`/api/v1/account/ssh-keys/${encodeURIComponent(keyId)}`, () => undefined);
 }
 
 // ---------------------------------------------------------------------------
@@ -268,18 +298,11 @@ const DevStatusAppSchema = z.object({
 });
 export type DevStatusApp = z.infer<typeof DevStatusAppSchema>;
 
-const DevStatusKeySchema = z.object({
-  label: z.string(),
-  lastUsedAt: z.string().nullable().optional(),
-});
-export type DevStatusKey = z.infer<typeof DevStatusKeySchema>;
-
 const DevStatusSchema = z.object({
   isDeveloper: z.boolean(),
   hasPendingRequest: z.boolean(),
   apps: z.array(DevStatusAppSchema),
   appsTotal: z.number(),
-  keys: z.array(DevStatusKeySchema),
   lastNotificationAttempt: z.string().nullable().optional(),
   lastNotificationError: z.string().nullable().optional(),
 });

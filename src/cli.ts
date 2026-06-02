@@ -26,6 +26,7 @@ import { Command } from 'commander';
 import {
   CLIError,
   makeBetaCommand,
+  makeKeysCommand,
   runBuild,
   runDev,
   runDoctor,
@@ -111,7 +112,7 @@ program
   .option('--key <path>', 'SSH private key path (default ~/.ssh/id_ed25519)')
   .option('--passphrase <pass>', 'passphrase for an encrypted key')
   .option('--token <token>', 'paste a credential directly, skipping the SSH flow')
-  .option('--ci', 'CI-only guard; prompts you to set I99DASH_API_KEY instead', false)
+  .option('--ci', 'CI-only guard; prompts you to set I99DASH_TOKEN instead', false)
   .action(async (opts: { key?: string; passphrase?: string; token?: string; ci: boolean }) => {
     await runLogin({
       ci: opts.ci,
@@ -123,10 +124,9 @@ program
 
 program
   .command('logout')
-  .description('remove the stored API key from your keychain')
-  .option('--revoke', 'also revoke the API key on the server (default: just clear locally)', false)
-  .action(async (opts: { revoke: boolean }) => {
-    await runLogout({ revoke: opts.revoke });
+  .description('remove the stored access token from your keychain')
+  .action(async () => {
+    await runLogout();
   });
 
 program
@@ -138,7 +138,7 @@ program
 
 program
   .command('status [app_id]')
-  .description('show your developer-lifecycle snapshot (apps + review status + active keys)')
+  .description('show your developer-lifecycle snapshot (apps + review status)')
   .action(async (appId: string | undefined) => {
     await runStatus({ appId });
   });
@@ -224,6 +224,7 @@ program
   );
 
 program.addCommand(makeBetaCommand());
+program.addCommand(makeKeysCommand());
 
 // ── theme command group ───────────────────────────────────────────
 // Mirrors the mini-app init/build/validate/publish quartet, grouped
