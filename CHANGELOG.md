@@ -2,6 +2,17 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [6.0.0](https://github.com/i99dash/i99dash-sdk/compare/v5.6.0...v6.0.0) (2026-06-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* API-key auth is removed. The `I99DASH_API_KEY` environment variable is gone — use `I99DASH_TOKEN` (a session JWT) or `i99dash login` with a registered SSH key. There is no alias or fallback.
+
+### Features
+
+* SSH-key login is the one CLI credential — retire API keys ([#69](https://github.com/i99dash/i99dash-sdk/issues/69)) ([6a5652a](https://github.com/i99dash/i99dash-sdk/commit/6a5652abf5ebbc18caf51628739bc2b42a39a2d1))
+
 ## [5.6.0](https://github.com/i99dash/i99dash-sdk/compare/v5.5.1...v5.6.0) (2026-06-01)
 
 
