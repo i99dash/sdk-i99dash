@@ -45,6 +45,12 @@ import {
   runThemeBuild,
   runThemeValidate,
   runThemePublish,
+  runApkInit,
+  runApkValidate,
+  runApkBuild,
+  runApkPublish,
+  runApkPromote,
+  runApkStatus,
 } from './cli/index.js';
 import { logger, setQuiet, setVerbose } from './cli/util/logger.js';
 import { THEME_CATEGORY_SLUGS } from './types/index.js';
@@ -275,6 +281,74 @@ theme
   .option('--dry-run', 'run validation + build; do not upload', false)
   .action(async (opts: { dryRun: boolean }) => {
     await runThemePublish({ cwd: process.cwd(), dryRun: opts.dryRun });
+  });
+
+// ── apk command group ─────────────────────────────────────────────
+// Native-APK app store: the same init/validate/build/publish shape as
+// themes, plus `promote`/`status`, grouped under `i99dash apk <sub>`.
+// Native publishing is invite-only (can_publish_native) and every
+// version goes through admin review before it can be promoted.
+const apk = program.command('apk').description('publish native Android (APK) child apps');
+
+apk
+  .command('init [dir]')
+  .description('scaffold a new native-app project (apk.json)')
+  .option('-f, --force', 'overwrite a non-empty target dir', false)
+  .action(async (dir: string | undefined, opts: { force: boolean }) => {
+    await runApkInit({ cwd: process.cwd(), dir: dir ?? 'my-app', force: opts.force });
+  });
+
+apk
+  .command('validate')
+  .description('zod-validate apk.json + check the .apk + signer SHA')
+  .action(async () => {
+    await runApkValidate({ cwd: process.cwd() });
+  });
+
+apk
+  .command('build')
+  .description('hash + size the release .apk (no tarball — APK ships as-is)')
+  .action(async () => {
+    await runApkBuild({ cwd: process.cwd() });
+  });
+
+apk
+  .command('publish')
+  .description('validate, hash, SSH-attest, upload, and submit for review')
+  .option('--dry-run', 'run validation + hashing; do not upload', false)
+  .option('--key <path>', 'ssh private key to attest with (default ~/.ssh/id_ed25519)')
+  .option('--passphrase <pass>', 'passphrase for the ssh key, if any')
+  .action(async (opts: { dryRun: boolean; key?: string; passphrase?: string }) => {
+    await runApkPublish({
+      cwd: process.cwd(),
+      dryRun: opts.dryRun,
+      ...(opts.key !== undefined ? { key: opts.key } : {}),
+      ...(opts.passphrase !== undefined ? { passphrase: opts.passphrase } : {}),
+    });
+  });
+
+apk
+  .command('promote')
+  .description('promote the latest approved release to a staged rollout')
+  .requiredOption('--rollout <percent>', 'rollout percentage (0-100)')
+  .option('--status <status>', "'rolling' (default) or 'published'")
+  .action(async (opts: { rollout: string; status?: string }) => {
+    const rollout = Number.parseInt(opts.rollout, 10);
+    if (!Number.isFinite(rollout) || rollout < 0 || rollout > 100) {
+      throw new UsageError('--rollout must be an integer 0-100');
+    }
+    await runApkPromote({
+      cwd: process.cwd(),
+      rollout,
+      ...(opts.status !== undefined ? { status: opts.status } : {}),
+    });
+  });
+
+apk
+  .command('status')
+  .description('list your native apps + their review/release state')
+  .action(async () => {
+    await runApkStatus({ cwd: process.cwd() });
   });
 
 async function main(): Promise<void> {

@@ -109,6 +109,87 @@ export async function submitThemeManifest(
   );
 }
 
+// ---------------------------------------------------------------------------
+// Native-APK app-store endpoints (mirror the mini-app / theme upload-url +
+// submit pair, for native Android child apps). Backend:
+// ``app/api/v1/app_store`` + ``app/api/v1/admin/app_store``. Responses ride
+// the standard {success,data,...} envelope (the ApiClient unwraps it).
+// ---------------------------------------------------------------------------
+
+const ApkUploadUrlResponseSchema = z.object({
+  uploadUrl: z.string().url(),
+  objectKey: z.string().min(1),
+  expiresAt: z.string().optional(),
+});
+export type ApkUploadUrlResponse = z.infer<typeof ApkUploadUrlResponseSchema>;
+
+export async function requestApkUploadUrl(
+  api: ApiClient,
+  req: { package: string; versionCode: number },
+): Promise<ApkUploadUrlResponse> {
+  return api.post('/api/v1/apps/upload-url', req, (body) => ApkUploadUrlResponseSchema.parse(body));
+}
+
+export interface ApkSubmitManifest {
+  packageName: string;
+  versionCode: number;
+  versionName: string;
+  apkSha256: string;
+  sizeBytes: number;
+  apkSignerSha256: string;
+}
+
+const ApkSubmitResponseSchema = z.object({
+  packageId: z.string().min(1),
+  versionCode: z.number().int(),
+  reviewStatus: z.string(),
+  releaseId: z.string().min(1),
+});
+export type ApkSubmitResponse = z.infer<typeof ApkSubmitResponseSchema>;
+
+export async function submitApkManifest(
+  api: ApiClient,
+  req: {
+    manifest: ApkSubmitManifest;
+    devSignature: string;
+    category?: string;
+    requires?: Record<string, unknown>;
+  },
+): Promise<ApkSubmitResponse> {
+  return api.post('/api/v1/apps/submit', req, (body) => ApkSubmitResponseSchema.parse(body));
+}
+
+const ApkMineSchema = z.object({
+  apps: z.array(z.record(z.string(), z.unknown())),
+});
+
+/// List the caller's published native apps (raw manifest summaries).
+export async function listMyApks(api: ApiClient): Promise<Record<string, unknown>[]> {
+  const res = await api.get('/api/v1/apps/mine', (body) => ApkMineSchema.parse(body));
+  return res.apps;
+}
+
+const ApkPromoteResponseSchema = z.object({
+  id: z.string(),
+  versionCode: z.number().int(),
+  status: z.string(),
+  rolloutPercent: z.number().int(),
+});
+
+/// Promote the latest approved release: draft→rolling at a rollout %.
+export async function promoteApk(
+  api: ApiClient,
+  packageId: string,
+  rolloutPercent: number,
+  status?: string,
+): Promise<z.infer<typeof ApkPromoteResponseSchema>> {
+  return api.post(
+    `/api/v1/apps/${encodeURIComponent(packageId)}/promote`,
+    { rolloutPercent, ...(status ? { status } : {}) },
+    (body) => ApkPromoteResponseSchema.parse(body),
+  );
+}
+
 const MyAppsSchema = z.object({
   apps: z.array(
     z.object({

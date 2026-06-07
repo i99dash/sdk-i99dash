@@ -30,4 +30,13 @@ export { runThemeBuild, themeBundleName } from './commands/theme-build.js';
 export { runThemeValidate, ThemeValidationFailedError } from './commands/theme-validate.js';
 export { runThemePublish } from './commands/theme-publish.js';
 
+// Native-APK app-store commands (mirror the theme quartet + promote/status).
+// Surfaced under the `apk` command group in cli.ts.
+export { runApkInit } from './commands/apk-init.js';
+export { runApkBuild } from './commands/apk-build.js';
+export { runApkValidate, ApkValidationFailedError } from './commands/apk-validate.js';
+export { runApkPublish } from './commands/apk-publish.js';
+export { runApkPromote } from './commands/apk-promote.js';
+export { runApkStatus } from './commands/apk-status.js';
+
 export * from './util/errors.js';
