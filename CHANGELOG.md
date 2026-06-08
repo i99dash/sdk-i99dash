@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [6.2.0](https://github.com/i99dash/i99dash-sdk/compare/v6.1.0...v6.2.0) (2026-06-08)
+
+
+### Features
+
+* **cli:** extract APK icon + label at apk publish ([fe9ae64](https://github.com/i99dash/i99dash-sdk/commit/fe9ae64a5b6b59c72aa1070a913b71554f269c82))
+
 ## [6.1.0](https://github.com/i99dash/i99dash-sdk/compare/v6.0.0...v6.1.0) (2026-06-07)
 
 
