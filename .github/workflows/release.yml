@@ -160,7 +160,17 @@ jobs:
           # only. Stored as NPM_TOKEN in repo secrets.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
-        run: npm publish --access public
+        # Skip if this version is already on npm so the job is RE-RUNNABLE:
+        # npm rejects re-publishing a version (E403), which would otherwise
+        # abort a re-run before the CDN-mirror / register-downloads steps that
+        # follow — stranding a partially-completed release. Idempotent.
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if npm view "i99dash@$VERSION" version >/dev/null 2>&1; then
+            echo "i99dash@$VERSION already on npm — skipping publish (re-run safe)."
+          else
+            npm publish --access public
+          fi
 
       # ── Standalone CLI binaries + download manifest ──────────────────
       # The importable SDK ships on npm (above); the `i99dash` CLI ALSO
