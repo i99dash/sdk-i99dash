@@ -30,7 +30,7 @@ export function makeKeysCommand(): Command {
         logger.info('No SSH keys registered. Add one with `i99dash keys add <path-to-pub>`.');
         return;
       }
-      const header = padRow(['FINGERPRINT', 'NAME', 'TYPE', 'LAST USED']);
+      const header = padRow(['FINGERPRINT', 'NAME', 'PURPOSE', 'LAST USED']);
       logger.log(header);
       logger.log('-'.repeat(header.length));
       for (const k of rows) {
@@ -38,7 +38,7 @@ export function makeKeysCommand(): Command {
           padRow([
             k.fingerprint,
             k.name || '—',
-            k.keyType,
+            k.purpose ?? 'login',
             k.lastUsedAt ? fmtRelative(k.lastUsedAt) : 'never',
           ]),
         );
@@ -52,13 +52,23 @@ export function makeKeysCommand(): Command {
     .command('add <pubkey_path>')
     .description('register an OpenSSH public key (the contents of an *.pub file)')
     .option('--name <label>', 'label for the key (defaults to the key comment, then the filename)')
-    .action(async (pubkeyPath: string, opts: { name?: string }) => {
+    .option(
+      '--purpose <purpose>',
+      'login (full session, default) or attest (a publish-only CI signing key)',
+      'login',
+    )
+    .action(async (pubkeyPath: string, opts: { name?: string; purpose?: string }) => {
+      const purpose = opts.purpose ?? 'login';
+      if (purpose !== 'login' && purpose !== 'attest') {
+        throw new UsageError(`--purpose must be "login" or "attest" (got "${purpose}")`);
+      }
       const publicKey = readPublicKey(pubkeyPath);
       const name = (opts.name ?? deriveName(publicKey, pubkeyPath)).slice(0, 80);
       const api = await makeApi();
       logger.start(`registering SSH key from ${pubkeyPath}…`);
-      const key = await addSshKey(api, publicKey, name);
-      logger.success(`added "${key.name || key.fingerprint}" (${key.fingerprint}).`);
+      const key = await addSshKey(api, publicKey, name, purpose);
+      const tag = purpose === 'attest' ? ' [attest-only — publish scope only]' : '';
+      logger.success(`added "${key.name || key.fingerprint}" (${key.fingerprint})${tag}.`);
     });
 
   // -------------------------------------------------------------------------

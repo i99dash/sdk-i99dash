@@ -3,12 +3,14 @@ import { resolve } from 'node:path';
 
 import { ApiClient } from '../api/client.js';
 import { requestApkUploadUrl, submitApkManifest } from '../api/endpoints.js';
+import { mintPublishToken } from '../auth/ssh-login.js';
 import { loadKey } from '../auth/ssh.js';
 import { requireAccessToken } from '../auth/session.js';
 import { loadApkManifest } from '../config/apk-load.js';
 import { resolvedBackendUrl } from '../config/paths.js';
 import { canonicalArtifactManifest } from '../util/apk-canonical.js';
 import { extractApkMetadata, toLocaleMap } from '../util/apk-extract.js';
+import { NotAuthenticatedError, ServerError } from '../util/errors.js';
 import { logger } from '../util/logger.js';
 import { runApkBuild } from './apk-build.js';
 import { runApkValidate } from './apk-validate.js';
@@ -56,15 +58,51 @@ export async function runApkPublish(opts: ApkPublishOptions): Promise<void> {
   });
   const devSignature = loaded.sign(canonical).toString('base64');
 
-  const token = await requireAccessToken();
-  const api = new ApiClient(resolvedBackendUrl(), token);
+  // Resolve a credential. Prefer an explicit token (I99DASH_TOKEN env or the
+  // keychain); in CI where neither is set, auto-mint a PUBLISH-SCOPED token
+  // from the SSH key we just loaded — so a CI job needs only the key (no
+  // stored token), and the credential it gets can ONLY hit the publish
+  // surface (it's rejected everywhere else).
+  const backendUrl = resolvedBackendUrl();
+  let token: string;
+  try {
+    token = await requireAccessToken();
+  } catch (err) {
+    if (err instanceof NotAuthenticatedError) {
+      logger.info('no token found — signing in with the SSH key for a publish-scoped token');
+      token = await mintPublishToken(backendUrl, loaded);
+    } else {
+      throw err;
+    }
+  }
+  let api = new ApiClient(backendUrl, token);
+
+  // A slow upload can outlive a short publish token. On a 401, re-mint once
+  // from the SSH key and retry the call — so an unattended CI publish never
+  // strands on an expired credential. (The presigned PUT carries its own
+  // URL credential and is not wrapped.)
+  const withAuthRetry = async <T>(fn: () => Promise<T>): Promise<T> => {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err instanceof ServerError && err.statusCode === 401) {
+        logger.info('token expired — re-minting from the SSH key');
+        token = await mintPublishToken(backendUrl, loaded);
+        api = new ApiClient(backendUrl, token);
+        return await fn();
+      }
+      throw err;
+    }
+  };
 
   // 4. Ownership-checked presigned PUT URL (scoped to this exact object key).
   logger.start('requesting upload URL…');
-  const { uploadUrl } = await requestApkUploadUrl(api, {
-    package: manifest.id,
-    versionCode: manifest.versionCode,
-  });
+  const { uploadUrl } = await withAuthRetry(() =>
+    requestApkUploadUrl(api, {
+      package: manifest.id,
+      versionCode: manifest.versionCode,
+    }),
+  );
 
   // 5. PUT the APK bytes direct to object storage (presigned URL = credential).
   logger.start('uploading apk…');
@@ -94,22 +132,24 @@ export async function runApkPublish(opts: ApkPublishOptions): Promise<void> {
 
   // 6. Submit the attested manifest.
   logger.start('submitting…');
-  const res = await submitApkManifest(api, {
-    manifest: {
-      packageName: manifest.id,
-      versionCode: manifest.versionCode,
-      versionName: manifest.versionName,
-      apkSha256: sha256,
-      sizeBytes: size,
-      apkSignerSha256: manifest.signerSha256,
-    },
-    devSignature,
-    ...(manifest.category ? { category: manifest.category } : {}),
-    ...(manifest.requires ? { requires: manifest.requires } : {}),
-    ...(displayName ? { displayName } : {}),
-    ...(description ? { description } : {}),
-    ...(icon ? { icon } : {}),
-  });
+  const res = await withAuthRetry(() =>
+    submitApkManifest(api, {
+      manifest: {
+        packageName: manifest.id,
+        versionCode: manifest.versionCode,
+        versionName: manifest.versionName,
+        apkSha256: sha256,
+        sizeBytes: size,
+        apkSignerSha256: manifest.signerSha256,
+      },
+      devSignature,
+      ...(manifest.category ? { category: manifest.category } : {}),
+      ...(manifest.requires ? { requires: manifest.requires } : {}),
+      ...(displayName ? { displayName } : {}),
+      ...(description ? { description } : {}),
+      ...(icon ? { icon } : {}),
+    }),
+  );
   logger.success(`submitted — status=${res.reviewStatus} release=${res.releaseId.slice(0, 8)}…`);
   if (res.reviewStatus === 'pending') {
     logger.info(

@@ -1,0 +1,63 @@
+# Reference GitHub Actions workflow — publish a native APK to the i99dash
+# catalog on a version tag. Copy this into your repo at
+# `.github/workflows/publish-apk.yml` and adjust the build step.
+#
+# How auth works here (no long-lived token stored):
+#   * You store ONLY your SSH SIGNING KEY as a secret (I99DASH_SSH_KEY).
+#   * `i99dash apk publish` signs the K1 artifact attestation with that key
+#     AND, finding no I99DASH_TOKEN, auto-mints a short-lived PUBLISH-SCOPED
+#     token from the same key. That token can ONLY hit the publish endpoints
+#     — it is refused everywhere else — and it re-mints itself on expiry.
+#   * Register a DEDICATED key for CI with `purpose=attest`
+#     (`i99dash keys add ci.pub --purpose attest`) so that, even if the
+#     secret leaks, it can never be traded for a full account session.
+#
+# What this does and does NOT do:
+#   * It SUBMITS a new version. For third-party apps that enters human review;
+#     for an owner-allow-listed package it auto-approves. Either way it does
+#     NOT auto-promote — staged rollout (`apk promote --rollout N`) stays a
+#     deliberate manual step. "git tag" is "submitted", not "live on cars".
+
+name: Publish APK
+
+on:
+  push:
+    tags:
+      - 'v*' # publish on a version tag, e.g. v1.4.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # Recommended: gate the publish behind a protected Environment with
+    # required reviewers, so a tag can't publish unattended without sign-off.
+    environment: i99dash-publish
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- 1. Build + sign your .apk with YOUR Android keystore --------------
+      # The SDK does NOT build Android. Produce the release-signed APK however
+      # you normally do, then point apk.json "apkPath" at it.
+      # - uses: actions/setup-java@v4
+      #   with: { distribution: temurin, java-version: '17' }
+      # - run: ./gradlew assembleRelease   # → app/build/outputs/apk/release/app-release.apk
+
+      # --- 2. Make the SSH signing key available ----------------------------
+      # Store the PRIVATE key (a dedicated, attest-purpose key) as the
+      # I99DASH_SSH_KEY secret. If the key is passphrase-protected, store the
+      # passphrase as a second secret and pass `--passphrase` below (or, in a
+      # protected environment, use a passphrase-less dedicated CI key).
+      - name: Install signing key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.I99DASH_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      # --- 3. Publish --------------------------------------------------------
+      # No I99DASH_TOKEN is set: the CLI signs in with the SSH key for a
+      # publish-scoped token automatically. Run from the dir holding apk.json.
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Publish to i99dash
+        run: npx --yes i99dash@latest apk publish
+        # If your key has a passphrase:
+        # run: npx --yes i99dash@latest apk publish --passphrase "${{ secrets.I99DASH_SSH_PASSPHRASE }}"

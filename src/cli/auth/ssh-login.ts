@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import { NetworkError, ServerError } from '../util/errors.js';
+import type { LoadedKey } from './ssh.js';
 
 interface Envelope {
   success?: boolean;
@@ -30,11 +31,14 @@ export class SshLoginClient {
     return z.object({ nonce: z.string().min(1) }).parse(data).nonce;
   }
 
-  /// Trade the signature over the nonce for an access token.
-  async verify(nonce: string, signatureBase64: string): Promise<string> {
+  /// Trade the signature over the nonce for a token. Pass `scope: 'publish'`
+  /// to mint a narrow publish-scoped token (the CI credential) instead of a
+  /// full session — required for an `attest`-purpose key.
+  async verify(nonce: string, signatureBase64: string, scope?: string): Promise<string> {
     const data = await this.post('/api/v1/auth/ssh/verify', {
       nonce,
       signature: signatureBase64,
+      ...(scope ? { scope } : {}),
     });
     return z.object({ access_token: z.string().min(1) }).parse(data).access_token;
   }
@@ -61,4 +65,20 @@ export class SshLoginClient {
     }
     return json.data;
   }
+}
+
+/// Sign the SSH challenge with `loaded` and obtain a PUBLISH-scoped token.
+/// This is what `apk publish` uses in CI: provide the SSH key (which also
+/// signs the K1 artifact attestation) and the publish flow mints its own
+/// short-lived, publish-only credential — no long-lived token to store, and
+/// the token can't be used outside the native-publish surface.
+export async function mintPublishToken(
+  backendUrl: string,
+  loaded: LoadedKey,
+  fetchFn?: typeof fetch,
+): Promise<string> {
+  const client = new SshLoginClient(backendUrl, fetchFn);
+  const nonce = await client.challenge(loaded.fingerprint);
+  const signature = loaded.sign(Buffer.from(nonce, 'utf8')).toString('base64');
+  return client.verify(nonce, signature, 'publish');
 }

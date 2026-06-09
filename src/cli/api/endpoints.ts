@@ -222,6 +222,9 @@ const SshKeySchema = z.object({
   name: z.string(),
   fingerprint: z.string().min(1),
   keyType: z.string(),
+  /// "login" (full session) or "attest" (publish-scoped CI key only).
+  /// Optional for back-compat with a backend that predates the column.
+  purpose: z.string().optional(),
   createdAt: z.string(),
   lastUsedAt: z.string().nullable().optional(),
 });
@@ -237,10 +240,19 @@ export async function listSshKeys(api: ApiClient): Promise<SshKey[]> {
 
 /// Register an OpenSSH public key on the caller's account. ``name`` is a
 /// free-text label; ``publicKey`` is the one-line ``ssh-ed25519 AAAA...``
-/// string (the contents of a ``.pub`` file).
-export async function addSshKey(api: ApiClient, publicKey: string, name: string): Promise<SshKey> {
-  return api.post('/api/v1/account/ssh-keys', { public_key: publicKey, name }, (body) =>
-    SshKeySchema.parse(body),
+/// string (the contents of a ``.pub`` file). ``purpose`` is "login" (full
+/// session, default) or "attest" (a dedicated CI signing key that can only
+/// obtain a publish-scoped token — never a full session).
+export async function addSshKey(
+  api: ApiClient,
+  publicKey: string,
+  name: string,
+  purpose?: string,
+): Promise<SshKey> {
+  return api.post(
+    '/api/v1/account/ssh-keys',
+    { public_key: publicKey, name, ...(purpose ? { purpose } : {}) },
+    (body) => SshKeySchema.parse(body),
   );
 }
 
