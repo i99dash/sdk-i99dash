@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [6.3.0](https://github.com/i99dash/i99dash-sdk/compare/v6.2.0...v6.3.0) (2026-06-09)
+
+
+### Features
+
+* **cli:** publish a native APK from CI with a publish-scoped token ([#75](https://github.com/i99dash/i99dash-sdk/issues/75)) ([4e2254a](https://github.com/i99dash/i99dash-sdk/commit/4e2254aac09d51572d82d90d6178ccda7f4753d8))
+
 ## [6.2.0](https://github.com/i99dash/i99dash-sdk/compare/v6.1.0...v6.2.0) (2026-06-08)
 
 
