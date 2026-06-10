@@ -2,6 +2,14 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [6.3.1](https://github.com/i99dash/i99dash-sdk/compare/v6.3.0...v6.3.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* **cli:** parse the snake_case ssh-key response so keys add/list don't crash ([#79](https://github.com/i99dash/i99dash-sdk/issues/79)) ([be9c952](https://github.com/i99dash/i99dash-sdk/commit/be9c952f77b7777a768a3261f33ac572065b2feb))
+* **release:** make the publish job re-runnable — skip npm publish if the version already exists ([#77](https://github.com/i99dash/i99dash-sdk/issues/77)) ([ac5c955](https://github.com/i99dash/i99dash-sdk/commit/ac5c955cf3a6df6e6bfe672db8789edfeff60e23))
+
 ## [6.3.0](https://github.com/i99dash/i99dash-sdk/compare/v6.2.0...v6.3.0) (2026-06-09)
 
 
