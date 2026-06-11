@@ -159,7 +159,7 @@ program
 
 program
   .command('dev')
-  .description('start the local dev-server with bridge shim + fixtures')
+  .description('start the local dev-server with the bridge shim injected')
   .option('-p, --port <n>', 'port', (v) => parseInt(v, 10))
   .option('--host <h>', 'bind host (default 127.0.0.1; use 0.0.0.0 to expose on LAN)')
   .option('--no-open', "don't open the browser automatically")
@@ -181,7 +181,7 @@ program
 
 program
   .command('doctor')
-  .description('run preflight checks on the project (manifest, config, fixtures, dev-server)')
+  .description('run preflight checks on the project (manifest, config, dev-server)')
   .option(
     '--skip-dev-server',
     "don't probe the dev-server (CI-friendly when no `pnpm dev` is running)",

@@ -11,7 +11,6 @@
 ///   • config        — sdk.config.json present + parses
 ///   • dist          — dist/ exists if buildCommand was declared
 ///   • dev-server    — http://127.0.0.1:<port>/_sdk/state reachable
-///   • fixtures      — mocks/ files JSON-parse and look like envelopes
 ///
 /// Exit codes:
 ///   0 — every required check passed
@@ -19,10 +18,8 @@
 ///   2 — a check could not run (e.g. manifest unreadable). Treated
 ///       as failure for CI but printed differently.
 
-import { readdir, readFile, stat } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { stat } from 'node:fs/promises';
 
-import { FixtureSchema } from '../../dev-server/index.js';
 import { MiniAppManifestSchema } from '../../types/index.js';
 
 import { loadManifest, loadSdkConfig } from '../config/load.js';
@@ -141,53 +138,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<void> {
     });
   }
 
-  // 3. Fixtures — non-fatal warnings if any single one is malformed.
-  try {
-    const files = await safeReaddir(paths.mocksDir);
-    if (files === null) {
-      checks.push({
-        name: 'fixtures',
-        status: 'skip',
-        detail: 'no mocks/ directory',
-      });
-    } else {
-      const issues: string[] = [];
-      for (const f of files) {
-        if (!f.endsWith('.json')) continue;
-        const full = resolve(paths.mocksDir, f);
-        try {
-          const raw = await readFile(full, 'utf8');
-          const parsed = JSON.parse(raw);
-          // Fixtures wrap the response: ``{ match: {...}, response: CallApiResponse }``.
-          // FixtureStore in @i99dash/sdk-dev-server is the canonical
-          // parser at runtime — using the same schema here keeps doctor
-          // and the runtime in lockstep (no chance of drift).
-          const env = FixtureSchema.safeParse(parsed);
-          if (!env.success) {
-            issues.push(`${f}: not a Fixture envelope (expected {match, response})`);
-          }
-        } catch (e) {
-          issues.push(`${f}: ${(e as Error).message}`);
-        }
-      }
-      checks.push({
-        name: 'fixtures',
-        status: issues.length === 0 ? 'pass' : 'fail',
-        detail:
-          issues.length === 0
-            ? `${files.filter((f) => f.endsWith('.json')).length} fixture(s) ok`
-            : issues.join('; '),
-      });
-    }
-  } catch (e) {
-    checks.push({
-      name: 'fixtures',
-      status: 'fail',
-      detail: `mocks/ scan failed: ${(e as Error).message}`,
-    });
-  }
-
-  // 4. Dev-server — best-effort probe; skipped under --skip-dev-server.
+  // 3. Dev-server — best-effort probe; skipped under --skip-dev-server.
   if (opts.skipDevServer) {
     checks.push({
       name: 'dev-server',
@@ -219,7 +170,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<void> {
     }
   }
 
-  // 5. dist — only meaningful if a manifest exists and points at a
+  // 4. dist — only meaningful if a manifest exists and points at a
   //    static tree we can verify.
   if (manifestOk) {
     const distExists = await pathExists(paths.distDir);
@@ -265,14 +216,5 @@ async function pathExists(p: string): Promise<boolean> {
     return true;
   } catch {
     return false;
-  }
-}
-
-async function safeReaddir(p: string): Promise<string[] | null> {
-  try {
-    return await readdir(p);
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    throw e;
   }
 }

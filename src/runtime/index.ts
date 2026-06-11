@@ -87,7 +87,6 @@ export {
 export {
   BridgeTimeoutError,
   BridgeTransportError,
-  CallApiFailedError,
   InvalidResponseError,
   NotInsideHostError,
   SDKError,
@@ -102,10 +101,4 @@ export { createClientOrSSR } from './ssr.js';
 export { withTimeout } from './util/timeout.js';
 
 // Re-export the wire types so a consumer only needs `i99dash`.
-export type {
-  MiniAppContext,
-  CallApiRequest,
-  CallApiResponse,
-  ApiMethod,
-  HostCapabilities,
-} from '../types/index.js';
+export type { MiniAppContext, HostCapabilities } from '../types/index.js';

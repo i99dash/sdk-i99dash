@@ -1,15 +1,6 @@
 export { MiniAppContextSchema, type MiniAppContext } from './context.js';
 
 export {
-  ApiMethodSchema,
-  type ApiMethod,
-  CallApiRequestSchema,
-  type CallApiRequest,
-  CallApiResponseSchema,
-  type CallApiResponse,
-} from './call-api.js';
-
-export {
   LocaleMapSchema,
   type LocaleMap,
   MiniAppManifestSchema,
@@ -19,6 +10,8 @@ export {
   REQUIRES_SCHEMA,
   CATEGORY_SLUGS,
 } from './manifest.js';
+
+export { canonicalizeMiniAppOrigin, ORIGIN_FIXTURES } from './origin.js';
 
 export {
   THEME_SCHEMA,

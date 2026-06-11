@@ -4,7 +4,6 @@ import { MiniAppClient } from '../client.js';
 import {
   BridgeTimeoutError,
   BridgeTransportError,
-  CallApiFailedError,
   InvalidResponseError,
   NotInsideHostError,
 } from '../errors.js';
@@ -21,21 +20,15 @@ const validContext = {
 
 function bridgeReturning({
   context,
-  api,
   delayMs = 0,
 }: {
   context?: unknown;
-  api?: unknown;
   delayMs?: number;
 }): Bridge {
   return {
     getContext: async () => {
       if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
       return context;
-    },
-    callApi: async () => {
-      if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
-      return api;
     },
   };
 }
@@ -66,7 +59,6 @@ describe('MiniAppClient.getContext', () => {
       getContext: async () => {
         throw new BridgeTransportError('boom', new Error('x'));
       },
-      callApi: async () => ({ success: true, data: null }),
     };
     const c = MiniAppClient.withBridge(broken);
     await expect(c.getContext()).rejects.toBeInstanceOf(BridgeTransportError);
@@ -92,107 +84,10 @@ describe('MiniAppClient.getContext', () => {
   });
 });
 
-describe('MiniAppClient.callApi', () => {
-  it('returns success envelope unchanged', async () => {
-    const c = MiniAppClient.withBridge(
-      bridgeReturning({ api: { success: true, data: { stations: [] } } }),
-    );
-    const res = await c.callApi({ path: '/api/v1/fuel-stations', method: 'GET' });
-    expect(res.success).toBe(true);
-    if (res.success) expect(res.data).toEqual({ stations: [] });
-  });
-
-  it('returns failure envelope unchanged (no throw on success:false)', async () => {
-    const c = MiniAppClient.withBridge(
-      bridgeReturning({
-        api: { success: false, error: { code: 'disallowed_path', message: 'nope' } },
-      }),
-    );
-    const res = await c.callApi({ path: '/api/v1/fuel-stations', method: 'GET' });
-    expect(res.success).toBe(false);
-    if (!res.success) expect(res.error.code).toBe('disallowed_path');
-  });
-
-  it('throws InvalidResponseError on malformed envelope', async () => {
-    const c = MiniAppClient.withBridge(bridgeReturning({ api: { foo: 'bar' } }));
-    await expect(
-      c.callApi({ path: '/api/v1/fuel-stations', method: 'GET' }),
-    ).rejects.toBeInstanceOf(InvalidResponseError);
-  });
-});
-
-describe('MiniAppClient.callApiOrThrow', () => {
-  it('returns data on success', async () => {
-    const c = MiniAppClient.withBridge(
-      bridgeReturning({ api: { success: true, data: { ok: 1 } } }),
-    );
-    const data = await c.callApiOrThrow<{ ok: number }>({
-      path: '/api/v1/x',
-      method: 'GET',
-    });
-    expect(data).toEqual({ ok: 1 });
-  });
-
-  it('throws CallApiFailedError carrying the protocol error code', async () => {
-    const c = MiniAppClient.withBridge(
-      bridgeReturning({
-        api: { success: false, error: { code: 'disallowed_path', message: 'nope' } },
-      }),
-    );
-    try {
-      await c.callApiOrThrow({ path: '/api/v1/x', method: 'GET' });
-      throw new Error('should have thrown');
-    } catch (e) {
-      expect(e).toBeInstanceOf(CallApiFailedError);
-      const err = e as CallApiFailedError;
-      expect(err.errorCode).toBe('disallowed_path');
-      expect(err.code).toBe('CALL_API_FAILED');
-    }
-  });
-});
-
-describe('MiniAppClient.onPermissionDenied', () => {
-  it('fires when callApi returns a permission_denied envelope', async () => {
-    const c = MiniAppClient.withBridge(
-      bridgeReturning({
-        api: { success: false, error: { code: 'permission_denied', message: 'no scope' } },
-      }),
-    );
-    const seen: string[] = [];
-    const off = c.onPermissionDenied((scope) => seen.push(scope));
-    await c.callApi({ path: '/api/v1/foo', method: 'GET' });
-    off();
-    expect(seen).toEqual(['callApi:/api/v1/foo']);
-  });
-
-  it('does not fire on unrelated error codes or success', async () => {
-    const c = MiniAppClient.withBridge(bridgeReturning({ api: { success: true, data: {} } }));
-    const seen: string[] = [];
-    c.onPermissionDenied((scope) => seen.push(scope));
-    await c.callApi({ path: '/api/v1/foo', method: 'GET' });
-    expect(seen).toEqual([]);
-  });
-
-  it('unsubscribe is idempotent and stops dispatch', async () => {
-    const c = MiniAppClient.withBridge(
-      bridgeReturning({
-        api: { success: false, error: { code: 'permission_denied', message: '' } },
-      }),
-    );
-    const seen: string[] = [];
-    const off = c.onPermissionDenied((scope) => seen.push(scope));
-    off();
-    off(); // idempotent
-    await c.callApi({ path: '/api/v1/x', method: 'GET' });
-    expect(seen).toEqual([]);
-  });
-});
-
 describe('MiniAppClient.capabilities + has', () => {
   it('returns the host-declared shape on a CapabilitiesBridge', async () => {
     const bridge: CapabilitiesBridge = {
       getContext: async () => validContext,
-      callApi: async () => ({ success: true, data: null }),
       capabilities: async () => ({
         bridgeVersion: '1.2.3',
         families: ['car.status', 'media.read'],
@@ -210,7 +105,6 @@ describe('MiniAppClient.capabilities + has', () => {
     const handler = vi.fn(async () => ({ bridgeVersion: '1', families: ['car.status'] }));
     const bridge: CapabilitiesBridge = {
       getContext: async () => validContext,
-      callApi: async () => ({ success: true, data: null }),
       capabilities: handler,
     };
     const c = MiniAppClient.withBridge(bridge);
@@ -222,9 +116,7 @@ describe('MiniAppClient.capabilities + has', () => {
 
   it('falls back to bridgeVersion=unknown on a host without the handshake', async () => {
     // Plain Bridge — no `capabilities` method.
-    const c = MiniAppClient.withBridge(
-      bridgeReturning({ api: { success: true, data: null }, context: validContext }),
-    );
+    const c = MiniAppClient.withBridge(bridgeReturning({ context: validContext }));
     const caps = await c.capabilities();
     expect(caps.bridgeVersion).toBe('unknown');
     // Plain bridge has no car-status surface either, so families = []
@@ -235,7 +127,6 @@ describe('MiniAppClient.capabilities + has', () => {
   it('rejects malformed capabilities payloads with InvalidResponseError', async () => {
     const bridge: CapabilitiesBridge = {
       getContext: async () => validContext,
-      callApi: async () => ({ success: true, data: null }),
       capabilities: async () => ({ wrong: 'shape' }),
     };
     const c = MiniAppClient.withBridge(bridge);
@@ -261,7 +152,6 @@ describe('MiniAppClient.callFamily', () => {
     }> = [];
     const bridge: FamilyBridge = {
       getContext: async () => validContext,
-      callApi: async () => ({ success: true, data: null }),
       callFamily: async (familyId, op, params, idempotencyKey) => {
         calls.push({ familyId, op, params, idempotencyKey });
         return handler(familyId, op);
@@ -284,7 +174,7 @@ describe('MiniAppClient.callFamily', () => {
   });
 
   it('throws FamilyUnavailableError on a non-family bridge', async () => {
-    const c = MiniAppClient.withBridge(bridgeReturning({ api: { success: true, data: null } }));
+    const c = MiniAppClient.withBridge(bridgeReturning({ context: validContext }));
     await expect(c.callFamily('pkg', 'launch')).rejects.toBeInstanceOf(FamilyUnavailableError);
   });
 

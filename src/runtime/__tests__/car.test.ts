@@ -44,7 +44,6 @@ function newCarStub(): CarStub {
   const calls: CallRecord[] = [];
   const bridge: CarBridge = {
     getContext: async () => ({}),
-    callApi: async () => ({ success: true, data: null }),
     callHandler: async (name, ...args) => {
       const payload = args[0];
       calls.push({ name, payload });
@@ -355,7 +354,6 @@ describe('client.car — capability gating', () => {
   it('throws BridgeTransportError when bridge lacks callHandler', async () => {
     const plain: Bridge = {
       getContext: async () => null,
-      callApi: async () => ({ success: true, data: null }),
     };
     const client = MiniAppClient.withBridge(plain);
     await expect(client.car.list()).rejects.toBeInstanceOf(BridgeTransportError);

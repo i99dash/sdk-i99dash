@@ -47,7 +47,6 @@ describe('runInit', () => {
         'manifest.json',
         'sdk.config.json',
         'src',
-        'mocks',
         '.gitignore',
       ]),
     );

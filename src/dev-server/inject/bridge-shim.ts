@@ -70,7 +70,6 @@ export const BRIDGE_SHIM_JS = /* javascript */ `
     callHandler: async function (name) {
       var args = Array.prototype.slice.call(arguments, 1);
       if (name === 'getContext') return get('/_sdk/context');
-      if (name === 'callApi') return post('/_sdk/call-api', args[0]);
       if (isNativeCap(name)) return callNativeCap(name, args);
       return {
         success: false,

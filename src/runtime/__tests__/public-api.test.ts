@@ -21,7 +21,6 @@ const SDK_PUBLIC_EXPORTS = [
   'BridgeTimeoutError',
   'BridgeTransportError',
   'CAR_MAX_NAMES',
-  'CallApiFailedError',
   'CarController',
   'CursorController',
   'DisplayController',

@@ -6,18 +6,16 @@
 
 import { act, render, renderHook, waitFor } from '@testing-library/react';
 import {
-  CallApiFailedError,
   HOST_EVENTS_GLOBAL,
   MiniAppClient,
   type Bridge,
   type CarBridge,
   type HostEventsApi,
 } from '../../runtime/index.js';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
   MiniAppProvider,
-  useCallApi,
   useCarConnection,
   useCarSignals,
   useClient,
@@ -57,7 +55,6 @@ function newCarStub(): CarHostStub {
   let lastConnId = '';
   const bridge: CarBridge = {
     getContext: async () => validContext,
-    callApi: async () => ({ success: true, data: null }),
     callHandler: async (name, ..._args) => {
       switch (name) {
         case 'car.subscribe':
@@ -172,7 +169,6 @@ describe('useCarSignals', () => {
   it('keeps fallback if the bridge lacks callHandler', async () => {
     const plain: Bridge = {
       getContext: async () => validContext,
-      callApi: async () => ({ success: true, data: null }),
     };
     const client = MiniAppClient.withBridge(plain);
     const fallback = { speed_kmh: 0 };
@@ -206,58 +202,6 @@ describe('useCarConnection', () => {
       stub.emitConnection('conn-1', 'degraded');
     });
     expect(result.current.state).toBe('degraded');
-  });
-});
-
-describe('useCallApi', () => {
-  it('resolves data on success', async () => {
-    const bridge: Bridge = {
-      getContext: async () => validContext,
-      callApi: async () => ({ success: true, data: { value: 42 } }),
-    };
-    const client = MiniAppClient.withBridge(bridge);
-    const { result } = renderHook(
-      () => useCallApi<{ value: number }>({ path: '/api/v1/x', method: 'GET' }),
-      { wrapper: wrapper(client) },
-    );
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.data).toEqual({ value: 42 });
-    expect(result.current.error).toBeNull();
-  });
-
-  it('surfaces a CallApiFailedError on success:false', async () => {
-    const bridge: Bridge = {
-      getContext: async () => validContext,
-      callApi: async () => ({
-        success: false,
-        error: { code: 'disallowed_path', message: 'no' },
-      }),
-    };
-    const client = MiniAppClient.withBridge(bridge);
-    const { result } = renderHook(() => useCallApi({ path: '/api/v1/x', method: 'GET' }), {
-      wrapper: wrapper(client),
-    });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.error).toBeInstanceOf(CallApiFailedError);
-    if (result.current.error instanceof CallApiFailedError) {
-      expect(result.current.error.errorCode).toBe('disallowed_path');
-    }
-  });
-
-  it('respects enabled=false', async () => {
-    const callApi = vi.fn(async () => ({ success: true, data: null }));
-    const bridge: Bridge = {
-      getContext: async () => validContext,
-      callApi,
-    };
-    const client = MiniAppClient.withBridge(bridge);
-    renderHook(() => useCallApi({ path: '/api/v1/x', method: 'GET' }, { enabled: false }), {
-      wrapper: wrapper(client),
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(callApi).not.toHaveBeenCalled();
   });
 });
 

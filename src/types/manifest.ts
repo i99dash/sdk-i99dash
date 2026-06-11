@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import slugsJson from './category-slugs.json' with { type: 'json' };
 import { DILINK_FAMILIES, VEHICLE_CAPABILITIES } from './vehicle-capabilities.js';
+import { canonicalizeMiniAppOrigin } from './origin.js';
 
 /// Two-letter locale code (`ar`, `en`, ...) → display string.
 /// At least one entry is required so the host can always render a name.
@@ -187,6 +188,43 @@ export const MiniAppManifestSchema = z.object({
   /// scope never needs an SDK release). Informational for the catalog
   /// / consent UI; the host arbitrates the actual grant at call time.
   permissions: z.array(z.string().min(1).max(64)).max(32).optional(),
+
+  /// Declared external-egress allow-list: the HTTPS origins this app may
+  /// reach over the network. The car host turns this (union with the global
+  /// bundle origin) into a per-app Content-Security-Policy delivered as an
+  /// HTTP response header; every other origin is blocked. Each entry is a
+  /// bare `https://host[:port]` — no path/query/fragment/userinfo/wildcard,
+  /// no IP literal or `localhost` (see [canonicalizeMiniAppOrigin]). Entries
+  /// are lowercased + de-duped into canonical form at parse time, so the
+  /// stored value is CSP-byte-stable. Omit (or `[]`) ⇒ the app reaches no
+  /// third-party network; it can still load its own bundle. Max 10 origins.
+  ///
+  /// Note: this grants UNAUTHENTICATED browser `fetch()` to the declared
+  /// origins — no i99dash credentials are attached. It is a least-privilege
+  /// control reviewed at publish, not a guarantee against a hostile author.
+  network: z
+    .array(z.string().min(1).max(253))
+    .max(10, 'network: at most 10 origins')
+    .transform((origins, ctx) => {
+      const out: string[] = [];
+      const seen = new Set<string>();
+      for (const raw of origins) {
+        const canon = canonicalizeMiniAppOrigin(raw);
+        if (canon === null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `network origin must be https://host[:port] with no path/query/fragment/userinfo/wildcard/IP: ${raw}`,
+          });
+          return z.NEVER;
+        }
+        if (!seen.has(canon)) {
+          seen.add(canon);
+          out.push(canon);
+        }
+      }
+      return out;
+    })
+    .optional(),
 
   /// Privileged app (uses the admin bridge — `pkg.*`, `sys.*`,
   /// `diag.*`, `fs.*`). Default `false`. This is a **distribution**

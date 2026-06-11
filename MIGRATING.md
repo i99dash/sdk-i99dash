@@ -1,3 +1,40 @@
+# Migrating to v7.0 — `callApi` removed; declare `network` + use `fetch()`
+
+`7.0.0` is a hard cutover that **removes the `callApi` primitive entirely**.
+There is no host-proxied backend channel any more. A mini-app now reaches an
+external HTTP API with a **normal browser `fetch()`**, restricted to the HTTPS
+origins it declares in its manifest `network` field; the car host enforces the
+allow-list (request interception + a per-app Content-Security-Policy).
+
+Removed (no shim, no alias):
+
+- `MiniAppClient.callApi()` / `callApiOrThrow()`, `CallApiRequest` / `CallApiResponse` / `ApiMethod`, `CallApiFailedError` / `CALL_API_FAILED`.
+- The React `useCallApi` hook.
+- The dev-server `/_sdk/call-api` route, the fixture store (`mocks/*.json`), the `mocksDir` config key, and the `i99dash doctor` fixtures check.
+
+Migrate:
+
+```diff
+- const r = await client.callApi({ path: '/api/v1/prices', method: 'GET' });
+- if (r.success) render(r.data);
++ // 1. declare the origin in manifest.json: "network": ["https://api.example.com"]
++ // 2. call it directly:
++ const res = await fetch('https://api.example.com/v1/prices');
++ if (res.ok) render(await res.json());
+```
+
+Notes:
+
+- Declared egress is **unauthenticated** — no i99dash credentials are attached.
+  If you previously relied on `callApi` injecting the user's i99dash session
+  token to call the i99dash backend, that capability is gone; fetch your own
+  service and do your own auth.
+- Undeclared origins are blocked; redirects to undeclared origins are blocked.
+- The local dev-server no longer mocks backend calls (no fixtures). `fetch()`
+  to your declared origins works directly in dev (subject to that origin's CORS).
+
+---
+
 # Migrating to v4.0 — `bydDeviceId` → `deviceId` (+ `brand`)
 
 `4.0.0` is a hard cutover. The field formerly named `bydDeviceId`

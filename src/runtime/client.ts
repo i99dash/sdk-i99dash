@@ -1,7 +1,4 @@
 import {
-  type CallApiRequest,
-  type CallApiResponse,
-  CallApiResponseSchema,
   type HostCapabilities,
   HostCapabilitiesSchema,
   type MiniAppContext,
@@ -17,7 +14,7 @@ import { DisplayController } from './display.js';
 import { GestureController } from './gesture.js';
 import { PkgController } from './pkg.js';
 import { SurfaceController } from './surface.js';
-import { CallApiFailedError, InvalidResponseError, NotInsideHostError } from './errors.js';
+import { InvalidResponseError, NotInsideHostError } from './errors.js';
 import { invokeFamily, type InvokeFamilyOptions } from './family-controller.js';
 import { PermissionDeniedAggregator, type PermissionDeniedListener } from './permission-denied.js';
 import { withTimeout } from './util/timeout.js';
@@ -164,46 +161,6 @@ export class MiniAppClient {
     return parsed.data;
   }
 
-  /// Proxies [req] through the host's allow-listed `callApi`.
-  ///
-  /// NOTE: this method does **not** throw on `{success: false}`
-  /// responses. A `disallowed_path` response is a legitimate thing the
-  /// caller can handle — surfacing it as an exception would force
-  /// consumers to `try/catch` the happy path too. Genuine errors
-  /// (bridge transport, timeout, malformed envelope) do throw.
-  async callApi<T = unknown>(req: CallApiRequest, opts?: CallOptions): Promise<CallApiResponse<T>> {
-    const timeout = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    const raw = await withTimeout('callApi', timeout, () => this.bridge.callApi(req), opts?.signal);
-    const parsed = CallApiResponseSchema.safeParse(raw);
-    if (!parsed.success) {
-      throw new InvalidResponseError('callApi envelope did not match schema', parsed.error);
-    }
-    const env = parsed.data as CallApiResponse<T>;
-    // Forward permission-denied envelopes to the SDK-wide aggregator
-    // so app code can wire a single analytics handler instead of
-    // branching on every call site.
-    if (!env.success && env.error.code === 'permission_denied') {
-      this._permissionDenied.emit(`callApi:${req.path}`);
-    }
-    return env;
-  }
-
-  /// Like [callApi] but lifts a `{success: false}` envelope into a
-  /// thrown [CallApiFailedError]. The original protocol error code is
-  /// preserved on `err.errorCode` so a `try/catch` consumer can still
-  /// branch on it.
-  ///
-  /// Use this when the failure is genuinely exceptional and the
-  /// envelope-unwrap noise is worse than the throw — e.g. inside a
-  /// React `useQuery`, a Suspense boundary, or any code that wants
-  /// the typed-data path uncluttered. Stick with [callApi] for code
-  /// that wants happy/sad-path symmetry.
-  async callApiOrThrow<T = unknown>(req: CallApiRequest, opts?: CallOptions): Promise<T> {
-    const r = await this.callApi<T>(req, opts);
-    if (r.success) return r.data;
-    throw new CallApiFailedError(r.error.code, r.error.message);
-  }
-
   /// Bridge-capability handshake. Returns the host's declared
   /// `bridgeVersion` and the set of permission/family scopes it has
   /// handlers for.
@@ -279,13 +236,13 @@ export class MiniAppClient {
   }
 
   /// Subscribe an analytics-style handler to every `permission_denied`
-  /// failure the SDK observes — across `callApi` and (in a future
-  /// release) any new family controller. Returns an idempotent
-  /// unsubscribe fn.
+  /// failure the SDK observes — emitted by family controllers (and any
+  /// future controller) when the host denies a scoped op. Returns an
+  /// idempotent unsubscribe fn.
   ///
   /// `scope` argument forwarded to the listener identifies which
-  /// surface produced the denial — e.g. `callApi:/api/v1/foo`,
-  /// `car`. App code typically forwards to its analytics pipeline:
+  /// surface produced the denial — e.g. `car`. App code typically
+  /// forwards to its analytics pipeline:
   ///
   ///   client.onPermissionDenied(scope => analytics.track('denied', { scope }));
   onPermissionDenied(listener: PermissionDeniedListener): () => void {

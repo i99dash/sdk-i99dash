@@ -1,5 +1,5 @@
 /// Single-listener aggregator for `permission_denied` envelopes seen
-/// across any client surface (`callApi`, future media/climate
+/// across any client surface (family controllers, future media/climate
 /// controllers). Lets app authors wire one analytics handler instead
 /// of bolting `if (r.error.code === 'permission_denied') ...` to every
 /// call site.
@@ -18,9 +18,8 @@ export class PermissionDeniedAggregator {
   /// observes. Returns an idempotent unsubscribe fn.
   ///
   /// `scope` is the family identifier the failed call was nominally
-  /// asking for — e.g. `'callApi:/api/v1/foo'`, `'car.status'`,
-  /// `'media.read'`. The aggregator does not normalise; it forwards
-  /// whatever the controller declared.
+  /// asking for — e.g. `'car.status'`, `'media.read'`. The aggregator
+  /// does not normalise; it forwards whatever the controller declared.
   on(listener: PermissionDeniedListener): () => void {
     this._listeners.add(listener);
     let off = false;

@@ -1,17 +1,15 @@
-import type { CallApiRequest, CallApiResponse, MiniAppContext } from '../types/index.js';
+import type { MiniAppContext } from '../types/index.js';
 
 import { BridgeTransportError, NotInsideHostError } from './errors.js';
 
 /// Port implemented by anything that can talk to (or simulate) the host.
 ///
 /// The real `HostBridge` below proxies to a host-injected global that
-/// exposes `callHandler(name, ...args)`. The dev-server ships a
-/// `FetchBridge` that points at its local `/_sdk/*` endpoints. Tests
-/// use ad-hoc objects that satisfy this interface — no mocking
-/// framework required.
+/// exposes `callHandler(name, ...args)`. The dev-server injects a shim
+/// that points at its local `/_sdk/*` endpoints. Tests use ad-hoc
+/// objects that satisfy this interface — no mocking framework required.
 export interface Bridge {
   getContext(): Promise<unknown>;
-  callApi(req: CallApiRequest): Promise<unknown>;
 }
 
 /// Capability extension for hosts that ship the `capabilities`
@@ -217,14 +215,6 @@ export class HostBridge implements Bridge, CapabilitiesBridge, CarBridge, Family
     }
   }
 
-  async callApi(req: CallApiRequest): Promise<unknown> {
-    try {
-      return await this.api.callHandler('callApi', req);
-    } catch (cause) {
-      throw new BridgeTransportError('callApi bridge call failed', cause);
-    }
-  }
-
   async capabilities(): Promise<unknown> {
     try {
       return await this.api.callHandler('capabilities');
@@ -268,5 +258,5 @@ export class HostBridge implements Bridge, CapabilitiesBridge, CarBridge, Family
   }
 }
 
-/// Re-export the response type so consumers only need the one import.
-export type { CallApiRequest, CallApiResponse, MiniAppContext };
+/// Re-export the context type so consumers only need the one import.
+export type { MiniAppContext };

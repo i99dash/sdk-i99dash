@@ -8,9 +8,6 @@
 /// All re-exports here are `type` re-exports; the emitted JS bundle
 /// is empty.
 export type {
-  CallApiRequest,
-  CallApiResponse,
-  ApiMethod,
   MiniAppContext,
   CarAssetResponse,
   CarCatalogEntry,

@@ -2,9 +2,9 @@
 ///
 /// Typed errors exist so consumers can distinguish "my mini-app isn't
 /// running in a host" (common dev-time mistake) from "the bridge
-/// itself blew up" (rare, needs an issue). `callApi` protocol failures
-/// (`{success: false, error}`) are NOT thrown — they're first-class
-/// data the caller chooses to handle.
+/// itself blew up" (rare, needs an issue). Family-op protocol failures
+/// (`{success: false, error}`) surface as `FamilyOpError` from the
+/// family controller, not as a thrown bridge error.
 ///
 /// Every concrete subclass exposes:
 ///   - `name`     — class name, survives minification.
@@ -23,8 +23,7 @@ export type SDKErrorCode =
   | 'NOT_INSIDE_HOST'
   | 'BRIDGE_TRANSPORT'
   | 'BRIDGE_TIMEOUT'
-  | 'INVALID_RESPONSE'
-  | 'CALL_API_FAILED';
+  | 'INVALID_RESPONSE';
 
 export abstract class SDKError extends Error {
   // Custom class names survive minification gotchas better via this
@@ -75,7 +74,8 @@ export class NotInsideHostError extends SDKError {
 }
 
 /// The bridge itself threw or rejected. Distinct from a protocol
-/// failure, which is carried inside the `CallApiResponse` envelope.
+/// failure, which is carried inside the response envelope (e.g. a
+/// family controller's `{success: false, error}`).
 export class BridgeTransportError extends SDKError {
   constructor(message: string, cause: unknown) {
     super(
@@ -106,8 +106,8 @@ export class BridgeTimeoutError extends SDKError {
 }
 
 /// The host returned a payload that didn't match the expected schema
-/// (`MiniAppContextSchema` for `getContext`, the `{success, ...}`
-/// envelope for `callApi`). Almost always means a version drift
+/// (`MiniAppContextSchema` for `getContext`, `HostCapabilitiesSchema`
+/// for the capability handshake). Almost always means a version drift
 /// between the SDK and the host.
 export class InvalidResponseError extends SDKError {
   constructor(detail: string, cause: unknown) {
@@ -118,28 +118,5 @@ export class InvalidResponseError extends SDKError {
       `invalid host response: ${detail} (see ${DOCS_BASE}#invalid_response)`,
       { cause },
     );
-  }
-}
-
-/// `callApi` returned a `{success: false, error}` envelope and the
-/// caller used `callApiOrThrow` to lift it to an exception. The
-/// envelope's structured error code is preserved on `errorCode` so
-/// `try/catch` consumers can still branch on it.
-///
-/// Prefer plain `callApi` for happy/sad-path symmetric code; reach for
-/// `callApiOrThrow` when the failure is genuinely exceptional and you
-/// don't want envelope-unwrap noise on every call site.
-export class CallApiFailedError extends SDKError {
-  /// The `error.code` from the protocol envelope — e.g.
-  /// `'disallowed_path'`, `'http_4xx'`, `'timeout'`. Stable, switch-safe.
-  readonly errorCode: string;
-  constructor(errorCode: string, message: string) {
-    super(
-      'CallApiFailedError',
-      'CALL_API_FAILED',
-      `${DOCS_BASE}#call_api_failed`,
-      `callApi failed [${errorCode}]: ${message} (see ${DOCS_BASE}#call_api_failed)`,
-    );
-    this.errorCode = errorCode;
   }
 }

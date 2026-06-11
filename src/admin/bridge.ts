@@ -2,8 +2,8 @@
 /// host-bridge primitives in ``@i99dash/sdk``.
 ///
 /// Why a wrapper at all: privileged ops use a different host
-/// handler name (``_admin.exec``) than regular mini-app calls
-/// (``getContext`` / ``callApi``). Everything else — the global
+/// handler name (``_admin.exec``) than the regular mini-app
+/// ``getContext`` call. Everything else — the global
 /// names, the legacy fallback, the resolution logic, error classes
 /// — is shared with the public SDK. After the Phase-7 dedup audit,
 /// this file holds **only** the ``_admin.exec`` shape; nothing

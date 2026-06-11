@@ -54,9 +54,7 @@ describe('HostBridge', () => {
         },
       },
     });
-    await expect(host.callApi({ path: '/api/v1/x', method: 'GET' })).rejects.toBeInstanceOf(
-      BridgeTransportError,
-    );
+    await expect(host.getContext()).rejects.toBeInstanceOf(BridgeTransportError);
   });
 
   it('exposes callHandler so CarController can reach v2 car.* handlers', async () => {
@@ -82,7 +80,6 @@ describe('HostBridge', () => {
   it('plain Bridge stubs do not satisfy isCarBridge', () => {
     const plain: Bridge = {
       getContext: async () => null,
-      callApi: async () => ({ success: true, data: null }),
     };
     expect(isCarBridge(plain)).toBe(false);
   });
