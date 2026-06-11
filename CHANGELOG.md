@@ -2,6 +2,17 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [7.0.0](https://github.com/i99dash/i99dash-sdk/compare/v6.3.1...v7.0.0) (2026-06-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove the callApi primitive entirely (runtime client, bridge, types, dev-server proxy, React useCallApi hook, CLI fixtures/mocks). Mini-apps now reach external HTTPS APIs with a normal fetch(), restricted to the origins declared in the new manifest `network` field; the car host enforces the allow-list. Adds MiniAppManifest.network + canonicalizeMiniAppOrigin grammar + shared origin-fixtures.json corpus. Major 6.3.1 -> 7.0.0.
+
+### Features
+
+* replace callApi with manifest-declared network egress (7.0.0) ([#80](https://github.com/i99dash/i99dash-sdk/issues/80)) ([d6146b1](https://github.com/i99dash/i99dash-sdk/commit/d6146b1ee99c4797e6c6ac8d2eac9a2aaae05d83))
+
 ## [6.3.1](https://github.com/i99dash/i99dash-sdk/compare/v6.3.0...v6.3.1) (2026-06-10)
 
 

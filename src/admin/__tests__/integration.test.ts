@@ -55,7 +55,7 @@ describe('sdk + admin-sdk integration — one window, both clients', () => {
   let cleanup = (): void => {};
   afterEach(() => cleanup());
 
-  it('routes getContext, callApi, and _admin.exec through one host', async () => {
+  it('routes getContext and _admin.exec through one host', async () => {
     const seen: string[] = [];
     ({ cleanup } = installHost(async (name, ..._args) => {
       seen.push(name);
@@ -69,8 +69,6 @@ describe('sdk + admin-sdk integration — one window, both clients', () => {
             appVersion: '1.0.0',
             appId: 'diagnostics-pro',
           };
-        case 'callApi':
-          return { success: true, data: { ok: true } };
         case '_admin.exec':
           return { success: true, data: { lines: ['boot ok'] } };
         default:
@@ -87,16 +85,13 @@ describe('sdk + admin-sdk integration — one window, both clients', () => {
     const ctx = await mini.getContext();
     expect(ctx.appId).toBe('diagnostics-pro');
 
-    const api = await mini.callApi({ path: '/api/v1/x', method: 'GET' });
-    expect(api.success).toBe(true);
-
     const adminRes = await admin.tailLogs({ lines: 1 });
     expect(adminRes.success).toBe(true);
     if (adminRes.success) expect(adminRes.data.lines).toEqual(['boot ok']);
 
-    // All three handler names hit the SAME host. No accidental
+    // Both handler names hit the SAME host. No accidental
     // duplicate registration, no per-package window stub.
-    expect(seen).toEqual(['getContext', 'callApi', '_admin.exec']);
+    expect(seen).toEqual(['getContext', '_admin.exec']);
   });
 
   it('resolveHostApi finds the same bridge both packages use', () => {

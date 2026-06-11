@@ -19,9 +19,6 @@ const EXPECTED_PUBLIC_SYMBOLS = [
   'MiniAppManifestSchema',
   'LocaleMapSchema',
   'CATEGORY_SLUGS',
-  'ApiMethodSchema',
-  'CallApiRequestSchema',
-  'CallApiResponseSchema',
   'HostCapabilitiesSchema',
   'CarAssetResponseSchema',
   'CarCatalogEntrySchema',
@@ -69,7 +66,6 @@ const EXPECTED_PUBLIC_SYMBOLS = [
   'CarController',
   'BridgeTimeoutError',
   'BridgeTransportError',
-  'CallApiFailedError',
   'InvalidResponseError',
   'NotInsideHostError',
   'SDKError',
@@ -124,7 +120,6 @@ describe('public surface', () => {
     expect(typeof devServer.startDevServer).toBe('function');
     expect(typeof devServer.buildServer).toBe('function');
     expect(typeof devServer.StateStore).toBe('function');
-    expect(typeof devServer.FixtureStore).toBe('function');
   });
 
   it('exposes MiniAppProvider + hooks via /react', () => {
@@ -133,6 +128,5 @@ describe('public surface', () => {
     expect(typeof react.useMiniAppContext).toBe('function');
     expect(typeof react.useCarSignals).toBe('function');
     expect(typeof react.useCarConnection).toBe('function');
-    expect(typeof react.useCallApi).toBe('function');
   });
 });

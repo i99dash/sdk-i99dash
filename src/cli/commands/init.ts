@@ -45,7 +45,6 @@ export interface InitOptions {
 ///   - `sdk.config.json` (empty → schema defaults apply)
 ///   - `assets/icon.svg` (placeholder; user replaces with real artwork)
 ///   - `src/index.html` (Hello, mini-app)
-///   - `mocks/fuel-stations.GET.json` (example fixture)
 export async function runInit(opts: InitOptions): Promise<void> {
   const target = resolve(opts.cwd, opts.dir);
   if (!TEMPLATES.includes(opts.template)) {
@@ -80,13 +79,11 @@ export async function runInit(opts: InitOptions): Promise<void> {
 
 async function scaffoldVanilla(target: string, dirName: string, category: string): Promise<void> {
   await mkdir(resolve(target, 'src', 'assets'), { recursive: true });
-  await mkdir(resolve(target, 'mocks'), { recursive: true });
 
   await writeFile(resolve(target, 'package.json'), packageJsonTemplate(dirName));
   await writeFile(resolve(target, 'manifest.json'), manifestJsonTemplate(dirName, category));
   await writeFile(resolve(target, 'sdk.config.json'), sdkConfigJsonTemplate());
   await writeFile(resolve(target, 'src', 'index.html'), htmlTemplate());
-  await writeFile(resolve(target, 'mocks', 'fuel-stations.GET.json'), fuelStationsFixture());
   await writeFile(resolve(target, '.gitignore'), gitignoreTemplate());
   // Asset goes INSIDE the appRoot (src/) so the vanilla build copies it
   // to dist/, where it ends up at the CDN path the manifest declares.
@@ -102,7 +99,6 @@ async function scaffoldVanilla(target: string, dirName: string, category: string
 async function scaffoldClusterWidget(target: string, dirName: string): Promise<void> {
   const id = dirName.replace(/[^a-z0-9_-]/gi, '-').toLowerCase() || 'my-cluster-widget';
   await mkdir(resolve(target, 'src', 'assets'), { recursive: true });
-  await mkdir(resolve(target, 'mocks'), { recursive: true });
 
   await writeFile(resolve(target, 'package.json'), packageJsonTemplate(dirName));
   await writeFile(resolve(target, 'manifest.json'), clusterWidgetManifestTemplate(id));
@@ -257,7 +253,6 @@ function sdkConfigJsonTemplate(): string {
     {
       appRoot: './src',
       distDir: './dist',
-      mocksDir: './mocks',
       dev: {
         port: 5173,
         host: '127.0.0.1',
@@ -283,8 +278,6 @@ function htmlTemplate(): string {
 <body>
   <h1 id="hello">…</h1>
   <pre id="ctx">loading context…</pre>
-  <h2>Fuel stations</h2>
-  <pre id="fuel">loading…</pre>
   <script type="module">
     import { MiniAppClient } from 'https://esm.sh/i99dash';
 
@@ -296,13 +289,6 @@ function htmlTemplate(): string {
       document.getElementById('hello').textContent =
         ctx.locale === 'ar' ? 'مرحباً' : 'Hello';
       document.getElementById('ctx').textContent = JSON.stringify(ctx, null, 2);
-
-      const res = await client.callApi({
-        path: '/api/v1/fuel-stations',
-        method: 'GET',
-        query: { car_id: ctx.activeCarId, radius_m: 5000 },
-      });
-      document.getElementById('fuel').textContent = JSON.stringify(res, null, 2);
     }
     main().catch((e) => {
       document.getElementById('ctx').textContent = String(e);
@@ -311,25 +297,6 @@ function htmlTemplate(): string {
 </body>
 </html>
 `;
-}
-
-function fuelStationsFixture(): string {
-  return `${JSON.stringify(
-    {
-      match: { path: '/api/v1/fuel-stations', method: 'GET' },
-      response: {
-        success: true,
-        data: {
-          stations: [
-            { name: 'Shell — Main Rd', price_sar: 2.33 },
-            { name: 'ADNOC — Al Khalifa', price_sar: 2.29 },
-          ],
-        },
-      },
-    },
-    null,
-    2,
-  )}\n`;
 }
 
 function gitignoreTemplate(): string {

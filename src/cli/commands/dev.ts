@@ -24,7 +24,6 @@ export async function runDev(opts: DevOptions): Promise<void> {
     port,
     host,
     appRoot: resolve(opts.cwd, cfg.appRoot),
-    mocksDir: resolve(opts.cwd, cfg.mocksDir),
     initialState: initial,
   });
 

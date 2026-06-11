@@ -40,7 +40,11 @@ describe('MiniAppManifestSchema.network', () => {
   it('accepts + canonicalizes + dedupes declared origins', () => {
     const r = MiniAppManifestSchema.safeParse({
       ...base,
-      network: ['https://api.aladhan.com', 'https://API.Aladhan.com/', 'https://cdn.example.com:8443'],
+      network: [
+        'https://api.aladhan.com',
+        'https://API.Aladhan.com/',
+        'https://cdn.example.com:8443',
+      ],
     });
     expect(r.success).toBe(true);
     if (r.success) {
@@ -49,7 +53,12 @@ describe('MiniAppManifestSchema.network', () => {
   });
 
   it('rejects a manifest with any invalid origin', () => {
-    for (const bad of ['http://api.example.com', 'https://example.com/v1', 'https://10.0.0.1', 'https://localhost']) {
+    for (const bad of [
+      'http://api.example.com',
+      'https://example.com/v1',
+      'https://10.0.0.1',
+      'https://localhost',
+    ]) {
       const r = MiniAppManifestSchema.safeParse({ ...base, network: [bad] });
       expect(r.success, `expected reject for ${bad}`).toBe(false);
     }

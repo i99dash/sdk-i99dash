@@ -6,7 +6,6 @@ export interface ProjectPaths {
   root: string;
   manifestJson: string;
   sdkConfigTs: string;
-  mocksDir: string;
   distDir: string;
   sourceDir: string;
 }
@@ -17,7 +16,6 @@ export function projectPaths(root = process.cwd()): ProjectPaths {
     root: abs,
     manifestJson: resolve(abs, 'manifest.json'),
     sdkConfigTs: resolve(abs, 'sdk.config.ts'),
-    mocksDir: resolve(abs, 'mocks'),
     distDir: resolve(abs, 'dist'),
     sourceDir: resolve(abs, 'src'),
   };

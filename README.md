@@ -23,10 +23,10 @@ console.log(ctx.locale);
 | Privileged admin client (`pm.disable_user`, `diag.tail_logs`, …)                       | `import { AdminClient } from 'i99dash'`                  |
 | Wire-shape zod schemas + types                                                         | `import { MiniAppManifestSchema } from 'i99dash'`        |
 | React bindings (`<MiniAppProvider>`, `useCarStatus`, …)                                | `import { MiniAppProvider } from 'i99dash/react'`        |
-| Local dev-server (mock host + bridge shim + fixture watcher)                           | `import { startDevServer } from 'i99dash/dev-server'`    |
+| Local dev-server (mock host + bridge shim)                                             | `import { startDevServer } from 'i99dash/dev-server'`    |
 | CLI (`init`, `login`, `keys`, `dev`, `validate`, `build`, `publish`, `doctor`, `beta`) | `i99dash <command>` after install, or `pnpm dlx i99dash` |
 
-The runtime client makes **zero network calls on its own** — it only proxies what your code requests through `callApi`. The CLI phones home for SSH-key login (challenge/verify) and publish uploads. No telemetry.
+The runtime client makes **zero network calls on its own**. To reach an external HTTP API, your mini-app uses a normal browser `fetch()`, restricted to the HTTPS origins you declare in your manifest `network` field — the car host enforces that allow-list (request interception + per-app CSP). The CLI phones home for SSH-key login (challenge/verify) and publish uploads. No telemetry.
 
 ## Quickstart
 

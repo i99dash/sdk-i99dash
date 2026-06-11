@@ -26,9 +26,6 @@ class FakeFamilyBridge implements FamilyBridge {
   async getContext(): Promise<unknown> {
     return {};
   }
-  async callApi(): Promise<unknown> {
-    throw new Error('not used');
-  }
   async callFamily(): Promise<unknown> {
     return { success: true, data: this.data };
   }

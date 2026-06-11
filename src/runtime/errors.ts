@@ -74,7 +74,8 @@ export class NotInsideHostError extends SDKError {
 }
 
 /// The bridge itself threw or rejected. Distinct from a protocol
-/// failure, which is carried inside the `CallApiResponse` envelope.
+/// failure, which is carried inside the response envelope (e.g. a
+/// family controller's `{success: false, error}`).
 export class BridgeTransportError extends SDKError {
   constructor(message: string, cause: unknown) {
     super(

@@ -19,9 +19,6 @@ export const SdkConfigSchema = z.object({
   /// Build output directory. Default: `./dist`.
   distDir: z.string().default('./dist'),
 
-  /// Directory containing `*.json` fixtures for `callApi`. Default: `./mocks`.
-  mocksDir: z.string().default('./mocks'),
-
   /// Initial dev-server state — the UI can override these at runtime;
   /// this block is just the starting point after `sdk dev`.
   dev: z

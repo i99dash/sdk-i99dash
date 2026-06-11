@@ -1,20 +1,15 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { buildServer } from '../server.js';
-import { FixtureStore } from '../state/fixture-store.js';
 import { NativeCapStore } from '../state/native-cap-store.js';
 import { StateStore } from '../state/state-store.js';
 
 /// Test helper. Each test gets fresh stores so suite order can't
 /// matter — particularly important for the in-memory NativeCapStore
 /// whose surfaces / boot rows accumulate within a server lifetime.
-function makeBuildServerOpts(state: StateStore, dir: string) {
+function makeBuildServerOpts(state: StateStore) {
   return {
     state,
-    fixtures: new FixtureStore(dir),
     nativeCap: new NativeCapStore('x'),
   };
 }
@@ -31,23 +26,9 @@ const initialState = {
   speedKmh: 0,
 };
 
-let dir: string;
-
-beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'srv-'));
-});
-
-afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
-});
-
 describe('dev-server routes', () => {
   it('GET /_sdk/bridge.js returns the shim JS', async () => {
-    const app = await buildServer({
-      state: new StateStore(initialState),
-      fixtures: new FixtureStore(dir),
-      nativeCap: new NativeCapStore('x'),
-    });
+    const app = await buildServer(makeBuildServerOpts(new StateStore(initialState)));
     try {
       const res = await app.inject({ method: 'GET', url: '/_sdk/bridge.js' });
       expect(res.statusCode).toBe(200);
@@ -61,11 +42,7 @@ describe('dev-server routes', () => {
 
   it('GET /_sdk/context returns current context', async () => {
     const store = new StateStore(initialState);
-    const app = await buildServer({
-      state: store,
-      fixtures: new FixtureStore(dir),
-      nativeCap: new NativeCapStore('x'),
-    });
+    const app = await buildServer(makeBuildServerOpts(store));
     try {
       const res = await app.inject({ method: 'GET', url: '/_sdk/context' });
       expect(res.statusCode).toBe(200);
@@ -75,63 +52,9 @@ describe('dev-server routes', () => {
     }
   });
 
-  it('POST /_sdk/call-api returns NO_FIXTURE when no mock matches', async () => {
-    const app = await buildServer({
-      state: new StateStore(initialState),
-      fixtures: new FixtureStore(dir),
-      nativeCap: new NativeCapStore('x'),
-    });
-    try {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/_sdk/call-api',
-        payload: { path: '/api/v1/missing', method: 'GET' },
-      });
-      expect(res.statusCode).toBe(200);
-      const body = JSON.parse(res.body);
-      expect(body.success).toBe(false);
-      expect(body.error.code).toBe('NO_FIXTURE');
-    } finally {
-      await app.close();
-    }
-  });
-
-  it('POST /_sdk/call-api returns fixture when matched', async () => {
-    await writeFile(
-      join(dir, 'a.json'),
-      JSON.stringify({
-        match: { path: '/api/v1/fuel-stations', method: 'GET' },
-        response: { success: true, data: { stations: ['x'] } },
-      }),
-    );
-    const fixtures = new FixtureStore(dir);
-    await fixtures.load();
-    const app = await buildServer({
-      state: new StateStore(initialState),
-      fixtures,
-      nativeCap: new NativeCapStore('x'),
-    });
-    try {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/_sdk/call-api',
-        payload: { path: '/api/v1/fuel-stations', method: 'GET' },
-      });
-      const body = JSON.parse(res.body);
-      expect(body.success).toBe(true);
-      expect(body.data.stations).toEqual(['x']);
-    } finally {
-      await app.close();
-    }
-  });
-
   it('POST /_sdk/state patches and returns new state', async () => {
     const store = new StateStore(initialState);
-    const app = await buildServer({
-      state: store,
-      fixtures: new FixtureStore(dir),
-      nativeCap: new NativeCapStore('x'),
-    });
+    const app = await buildServer(makeBuildServerOpts(store));
     try {
       const res = await app.inject({
         method: 'POST',
@@ -149,11 +72,7 @@ describe('dev-server routes', () => {
   });
 
   it('POST /_sdk/state rejects malformed payloads', async () => {
-    const app = await buildServer({
-      state: new StateStore(initialState),
-      fixtures: new FixtureStore(dir),
-      nativeCap: new NativeCapStore('x'),
-    });
+    const app = await buildServer(makeBuildServerOpts(new StateStore(initialState)));
     try {
       const res = await app.inject({
         method: 'POST',
@@ -166,100 +85,6 @@ describe('dev-server routes', () => {
     }
   });
 
-  it('GET /_sdk/inspect returns an HTML page', async () => {
-    const app = await buildServer({
-      state: new StateStore(initialState),
-      fixtures: new FixtureStore(dir),
-      nativeCap: new NativeCapStore('x'),
-    });
-    try {
-      const res = await app.inject({ method: 'GET', url: '/_sdk/inspect' });
-      expect(res.statusCode).toBe(200);
-      expect(res.headers['content-type']).toContain('text/html');
-      expect(res.body).toContain('callApi inspector');
-    } finally {
-      await app.close();
-    }
-  });
-
-  it('GET /_sdk/inspect/data tracks recent decisions with the matched fixture', async () => {
-    await writeFile(
-      join(dir, 'a.json'),
-      JSON.stringify({
-        match: { path: '/api/v1/x', method: 'GET' },
-        response: { success: true, data: { ok: 1 } },
-      }),
-    );
-    const fixtures = new FixtureStore(dir);
-    await fixtures.load();
-    const store = new StateStore(initialState);
-    const app = await buildServer({ state: store, fixtures, nativeCap: new NativeCapStore('x') });
-    try {
-      // matched
-      await app.inject({
-        method: 'POST',
-        url: '/_sdk/call-api',
-        payload: { path: '/api/v1/x', method: 'GET' },
-      });
-      // no_fixture
-      await app.inject({
-        method: 'POST',
-        url: '/_sdk/call-api',
-        payload: { path: '/api/v1/missing', method: 'GET' },
-      });
-      // bad_request
-      await app.inject({
-        method: 'POST',
-        url: '/_sdk/call-api',
-        payload: { method: 'GET' }, // no path
-      });
-      const res = await app.inject({ method: 'GET', url: '/_sdk/inspect/data' });
-      expect(res.statusCode).toBe(200);
-      const body = JSON.parse(res.body) as {
-        decisions: Array<{
-          outcome: string;
-          fixtureFile?: string;
-          request: { path: string };
-        }>;
-      };
-      expect(body.decisions).toHaveLength(3);
-      expect(body.decisions[0]?.outcome).toBe('matched');
-      expect(body.decisions[0]?.fixtureFile).toContain('a.json');
-      expect(body.decisions[1]?.outcome).toBe('no_fixture');
-      expect(body.decisions[2]?.outcome).toBe('bad_request');
-    } finally {
-      await app.close();
-    }
-  });
-
-  it('inspect ring buffer caps at 20 decisions', async () => {
-    const store = new StateStore(initialState);
-    const app = await buildServer({
-      state: store,
-      fixtures: new FixtureStore(dir),
-      nativeCap: new NativeCapStore('x'),
-    });
-    try {
-      for (let i = 0; i < 25; i++) {
-        await app.inject({
-          method: 'POST',
-          url: '/_sdk/call-api',
-          payload: { path: `/api/v1/n${i}`, method: 'GET' },
-        });
-      }
-      const res = await app.inject({ method: 'GET', url: '/_sdk/inspect/data' });
-      const body = JSON.parse(res.body) as {
-        decisions: Array<{ request: { path: string } }>;
-      };
-      expect(body.decisions).toHaveLength(20);
-      // Oldest dropped — first remaining entry should be the 6th request
-      expect(body.decisions[0]?.request.path).toBe('/api/v1/n5');
-      expect(body.decisions[19]?.request.path).toBe('/api/v1/n24');
-    } finally {
-      await app.close();
-    }
-  });
-
   // ── Native-capability families (Phase A/B/C) ────────────────────
   // Sanity checks that the dev-server's fake routes return the
   // shapes the SDK's typed controllers expect, so a developer can
@@ -267,7 +92,7 @@ describe('dev-server routes', () => {
   // Leopard 8.
 
   it('POST /_sdk/native-cap → display.list returns the 3-display rig', async () => {
-    const opts = makeBuildServerOpts(new StateStore(initialState), dir);
+    const opts = makeBuildServerOpts(new StateStore(initialState));
     const app = await buildServer(opts);
     try {
       const res = await app.inject({
@@ -288,7 +113,7 @@ describe('dev-server routes', () => {
   });
 
   it('POST /_sdk/native-cap → surface.create + surface.list round-trip', async () => {
-    const opts = makeBuildServerOpts(new StateStore(initialState), dir);
+    const opts = makeBuildServerOpts(new StateStore(initialState));
     const app = await buildServer(opts);
     try {
       const create = await app.inject({
@@ -318,7 +143,7 @@ describe('dev-server routes', () => {
   });
 
   it('POST /_sdk/native-cap → pkg.list filters out system apps by default', async () => {
-    const opts = makeBuildServerOpts(new StateStore(initialState), dir);
+    const opts = makeBuildServerOpts(new StateStore(initialState));
     const app = await buildServer(opts);
     try {
       const r = await app.inject({
@@ -338,7 +163,6 @@ describe('dev-server routes', () => {
     const nativeCap = new NativeCapStore('app-a');
     const app = await buildServer({
       state: new StateStore(initialState),
-      fixtures: new FixtureStore(dir),
       nativeCap,
     });
     try {
@@ -373,7 +197,7 @@ describe('dev-server routes', () => {
   });
 
   it('POST /_sdk/native-cap rejects unknown family ops with unknown_op', async () => {
-    const opts = makeBuildServerOpts(new StateStore(initialState), dir);
+    const opts = makeBuildServerOpts(new StateStore(initialState));
     const app = await buildServer(opts);
     try {
       const r = await app.inject({

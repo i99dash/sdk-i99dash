@@ -14,8 +14,8 @@ export interface CapabilityResponse {
 }
 
 /// Generic op-result envelope returned by the ``_admin.exec`` host
-/// handler. Mirrors the regular ``CallApiResponse`` from the public
-/// SDK so consumers have one mental model.
+/// handler — the standard `{success, data | error}` shape the host's
+/// family executor returns, so consumers have one mental model.
 export type AdminOpResponse<T = unknown> =
   | { success: true; data: T }
   | { success: false; error: { code: string; message: string } };
