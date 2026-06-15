@@ -718,3 +718,44 @@ export const WorkflowListResponseSchema = z
   .object({ workflows: z.array(WorkflowRecordSchema) })
   .passthrough();
 export type WorkflowListResponse = z.infer<typeof WorkflowListResponseSchema>;
+
+// ─── Shared templates (the sharing lane) ────────────────────────────
+// A published, browsable workflow. The public gallery returns light
+// summaries (no document); a detail/import fetch + the author's own list
+// add `document` + `status`. Importing clones it into the user's account
+// as a `source: 'imported'` record that lands DISABLED with empty
+// `consentedActions` (the engine refuses every action until the owner
+// consents in-car — plan §8/§12). Mirrors the backend Template* DTOs.
+
+export const WorkflowTemplateSummarySchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    summary: z.string(),
+    category: z.string(),
+    installs: z.number().int(),
+    created_at: z.string().optional(),
+  })
+  .passthrough();
+export type WorkflowTemplateSummary = z.infer<typeof WorkflowTemplateSummarySchema>;
+
+/// Template detail — adds the document (for an import preview) and the
+/// publish status (relevant on the author's own list).
+export const WorkflowTemplateViewSchema = WorkflowTemplateSummarySchema.extend({
+  status: z.string(),
+  document: z.record(z.string(), z.unknown()),
+}).passthrough();
+export type WorkflowTemplateView = z.infer<typeof WorkflowTemplateViewSchema>;
+
+export const WorkflowTemplateListResponseSchema = z
+  .object({ templates: z.array(WorkflowTemplateSummarySchema) })
+  .passthrough();
+export type WorkflowTemplateListResponse = z.infer<typeof WorkflowTemplateListResponseSchema>;
+
+/// The author's own templates carry full detail (status + document).
+export const WorkflowTemplateDetailListResponseSchema = z
+  .object({ templates: z.array(WorkflowTemplateViewSchema) })
+  .passthrough();
+export type WorkflowTemplateDetailListResponse = z.infer<
+  typeof WorkflowTemplateDetailListResponseSchema
+>;

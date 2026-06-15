@@ -126,6 +126,14 @@ export {
   type WorkflowRecord,
   WorkflowListResponseSchema,
   type WorkflowListResponse,
+  WorkflowTemplateSummarySchema,
+  type WorkflowTemplateSummary,
+  WorkflowTemplateViewSchema,
+  type WorkflowTemplateView,
+  WorkflowTemplateListResponseSchema,
+  type WorkflowTemplateListResponse,
+  WorkflowTemplateDetailListResponseSchema,
+  type WorkflowTemplateDetailListResponse,
 } from './workflow.js';
 
 export {

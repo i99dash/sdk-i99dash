@@ -163,3 +163,66 @@ describe('WorkflowController CRUD (host-proxied)', () => {
     ).rejects.toThrow(/WORKFLOW_LIMIT_REACHED/);
   });
 });
+
+const sampleTemplateSummary = {
+  id: 'tpl-1',
+  name: 'Preheat on cold mornings',
+  summary: 'Warms the cabin when it gets cold',
+  category: 'comfort',
+  installs: 42,
+  created_at: '2026-06-15T00:00:00Z',
+};
+
+const sampleTemplateView = {
+  ...sampleTemplateSummary,
+  status: 'approved',
+  document: { workflowId: 'wf_tpl', name: 'Preheat', nodes: [], edges: [] },
+};
+
+describe('WorkflowController templates (sharing lane)', () => {
+  it('templates() lists public summaries and forwards the category filter', async () => {
+    const stub = newStub({ templates: [sampleTemplateSummary] });
+    const out = await new WorkflowController(stub.bridge).templates('comfort');
+    expect(stub.calls[0]?.name).toBe('workflow.templates');
+    expect((stub.calls[0]?.payload as Record<string, unknown>).category).toBe('comfort');
+    expect(out).toHaveLength(1);
+    expect(out[0]?.installs).toBe(42);
+  });
+
+  it('getTemplate() returns the detail view with its document', async () => {
+    const stub = newStub(sampleTemplateView);
+    const out = await new WorkflowController(stub.bridge).getTemplate('tpl-1');
+    expect(stub.calls[0]?.name).toBe('workflow.getTemplate');
+    expect(out.status).toBe('approved');
+    expect(out.document.workflowId).toBe('wf_tpl');
+  });
+
+  it('publishTemplate() defaults summary/category and returns the view', async () => {
+    const stub = newStub(sampleTemplateView);
+    const out = await new WorkflowController(stub.bridge).publishTemplate({
+      name: 'Preheat',
+      document: { workflowId: 'wf_tpl' },
+    });
+    expect(stub.calls[0]?.name).toBe('workflow.publishTemplate');
+    const payload = stub.calls[0]?.payload as Record<string, unknown>;
+    expect(payload.summary).toBe('');
+    expect(payload.category).toBe('general');
+    expect(out.id).toBe('tpl-1');
+  });
+
+  it('importTemplate() returns the created (imported, disabled) workflow record', async () => {
+    const stub = newStub({ ...sampleRecord, source: 'imported', enabled: false });
+    const rec = await new WorkflowController(stub.bridge).importTemplate('tpl-1');
+    expect(stub.calls[0]?.name).toBe('workflow.importTemplate');
+    expect((stub.calls[0]?.payload as Record<string, unknown>).id).toBe('tpl-1');
+    expect(rec.source).toBe('imported');
+    expect(rec.enabled).toBe(false);
+  });
+
+  it('surfaces a host error envelope (e.g. lane disabled) as a transport error', async () => {
+    const stub = newStub({ error: 'AUTOMATION_TEMPLATES_DISABLED' });
+    await expect(new WorkflowController(stub.bridge).templates()).rejects.toThrow(
+      /AUTOMATION_TEMPLATES_DISABLED/,
+    );
+  });
+});

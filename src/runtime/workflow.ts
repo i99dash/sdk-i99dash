@@ -19,6 +19,11 @@ import {
   WorkflowRecordSchema,
   type WorkflowRecord,
   type WorkflowSource,
+  WorkflowTemplateListResponseSchema,
+  type WorkflowTemplateSummary,
+  WorkflowTemplateDetailListResponseSchema,
+  WorkflowTemplateViewSchema,
+  type WorkflowTemplateView,
 } from '../types/workflow.js';
 import { type Bridge } from './bridge.js';
 import { BridgeTransportError, InvalidResponseError } from './errors.js';
@@ -109,6 +114,81 @@ export class WorkflowController {
     _throwIfError(raw, 'workflow.delete');
   }
 
+  // ── shared templates (the sharing lane) ───────────────────────────
+
+  /// Browse the public template gallery (approved templates only),
+  /// optionally filtered by `category`. Light summaries — no document.
+  async templates(category?: string): Promise<WorkflowTemplateSummary[]> {
+    const raw = await this._call('workflow.templates', { category });
+    _throwIfError(raw, 'workflow.templates');
+    const result = WorkflowTemplateListResponseSchema.safeParse(raw);
+    if (!result.success) {
+      throw new InvalidResponseError(
+        'workflow.templates payload did not match schema',
+        result.error,
+      );
+    }
+    return result.data.templates;
+  }
+
+  /// The caller's own published templates (any status — includes
+  /// `pending`/`rejected`), with full detail for the author portal.
+  async myTemplates(): Promise<WorkflowTemplateView[]> {
+    const raw = await this._call('workflow.myTemplates', {});
+    _throwIfError(raw, 'workflow.myTemplates');
+    const result = WorkflowTemplateDetailListResponseSchema.safeParse(raw);
+    if (!result.success) {
+      throw new InvalidResponseError(
+        'workflow.myTemplates payload did not match schema',
+        result.error,
+      );
+    }
+    return result.data.templates;
+  }
+
+  /// One template's detail (includes its document for an import preview).
+  async getTemplate(id: string): Promise<WorkflowTemplateView> {
+    const raw = await this._call('workflow.getTemplate', { id });
+    _throwIfError(raw, 'workflow.getTemplate');
+    return _parseTemplateView(raw, 'workflow.getTemplate');
+  }
+
+  /// Publish one of the user's workflows (or any valid document) as a
+  /// shareable template. The host proxies to the authenticated backend,
+  /// which SANITISES the document (fresh id, cleared consent) and applies
+  /// the review gate; a publish may land `pending` until approved.
+  async publishTemplate(input: {
+    name: string;
+    summary?: string;
+    category?: string;
+    document: Record<string, unknown>;
+  }): Promise<WorkflowTemplateView> {
+    const raw = await this._call('workflow.publishTemplate', {
+      name: input.name,
+      summary: input.summary ?? '',
+      category: input.category ?? 'general',
+      document: input.document,
+    });
+    _throwIfError(raw, 'workflow.publishTemplate');
+    return _parseTemplateView(raw, 'workflow.publishTemplate');
+  }
+
+  /// Import a template into the user's account. Returns the created
+  /// workflow record — which is `source: 'imported'`, DISABLED, and
+  /// un-consented; the owner enables + consents to its actions in-car.
+  async importTemplate(id: string): Promise<WorkflowRecord> {
+    const raw = await this._call('workflow.importTemplate', { id });
+    _throwIfError(raw, 'workflow.importTemplate');
+    const result = WorkflowRecordSchema.safeParse(raw);
+    if (!result.success) {
+      throw new InvalidResponseError(
+        'workflow.importTemplate payload did not match schema',
+        result.error,
+      );
+    }
+    return result.data;
+  }
+
   private async _call(handler: string, payload: unknown): Promise<unknown> {
     const api = _hostApi(this.bridge);
     try {
@@ -117,6 +197,15 @@ export class WorkflowController {
       throw new BridgeTransportError(`${handler} bridge call failed`, cause);
     }
   }
+}
+
+/// Validate a single `WorkflowTemplateView` payload (detail / publish).
+function _parseTemplateView(raw: unknown, op: string): WorkflowTemplateView {
+  const result = WorkflowTemplateViewSchema.safeParse(raw);
+  if (!result.success) {
+    throw new InvalidResponseError(`${op} payload did not match schema`, result.error);
+  }
+  return result.data;
 }
 
 /// The host write handlers return `{error: ...}` on a backend failure
