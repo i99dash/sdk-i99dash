@@ -41,6 +41,7 @@ const SDK_PUBLIC_EXPORTS = [
   'SURFACE_ROUTE_REGEX',
   'SurfaceController',
   'SurfaceRouteError',
+  'WorkflowController',
   'createClientOrSSR',
   'decodeFamilyEnvelope',
   'ensureHostEvents',

@@ -117,6 +117,11 @@ export {
   isSchemaCompatible,
   assessWorkflowSupport,
   parseWorkflowDocument,
+  WORKFLOW_CATALOG_SCHEMA,
+  WorkflowActionEntrySchema,
+  type WorkflowActionEntry,
+  WorkflowCatalogResponseSchema,
+  type WorkflowCatalogResponse,
 } from './workflow.js';
 
 export {

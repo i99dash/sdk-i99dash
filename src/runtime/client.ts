@@ -14,6 +14,7 @@ import { DisplayController } from './display.js';
 import { GestureController } from './gesture.js';
 import { PkgController } from './pkg.js';
 import { SurfaceController } from './surface.js';
+import { WorkflowController } from './workflow.js';
 import { InvalidResponseError, NotInsideHostError } from './errors.js';
 import { invokeFamily, type InvokeFamilyOptions } from './family-controller.js';
 import { PermissionDeniedAggregator, type PermissionDeniedListener } from './permission-denied.js';
@@ -126,6 +127,16 @@ export class MiniAppClient {
     return this._boot;
   }
   private _boot: BootController | undefined;
+
+  /// Workflow-canvas surface (`workflow.*` Tier-1 reads). Today:
+  /// `workflow.catalog()` — the authorable action palette (the command
+  /// registry + safety flags) the canvas needs, since `car.list` only
+  /// returns readable signals. Lazy — created on first access.
+  get workflow(): WorkflowController {
+    this._workflow ??= new WorkflowController(this.bridge);
+    return this._workflow;
+  }
+  private _workflow: WorkflowController | undefined;
 
   static fromWindow(): MiniAppClient {
     if (typeof window === 'undefined') {

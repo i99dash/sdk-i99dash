@@ -643,3 +643,51 @@ export function parseWorkflowDocument(
   }
   return { ok: true, document: full.data };
 }
+
+// ─── workflow.catalog bridge response (the action palette) ──────────
+// car.list returns readable signals only, so the action palette has no
+// existing source — the `workflow.catalog` host handler is the gap-fill.
+// It serializes the host command registry with the SAFETY flags the
+// canvas needs to badge + confirm dangerous nodes and the engine uses
+// to derive its independent stationary/confirm gate. Mirrors
+// car-i99dash `workflowActionEntries()` / `CarBridgeService.workflowCatalog()`.
+
+/// Schema version of the `workflow.catalog` payload. Bump when the
+/// entry shape changes; independent of [WORKFLOW_SCHEMA] (the document).
+export const WORKFLOW_CATALOG_SCHEMA = 1;
+
+/// One authorable action in the canvas palette, sourced from a host
+/// `CarCommand`. `securityClass` is the FIRST-CLASS safety signal —
+/// the canvas/engine derive confirm + stationary policy from it, NEVER
+/// from `reversible` (which is true for `door.unlock`/windows). `.passthrough()`
+/// so a newer host can add fields without breaking an older SDK.
+export const WorkflowActionEntrySchema = z
+  .object({
+    id: z.string(),
+    label: z.string(),
+    category: z.string(),
+    params: z.record(z.string(), z.string()).optional(),
+    paramDefaults: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+    requiresStationary: z.boolean(),
+    reversible: z.boolean(),
+    securityClass: z.enum(SECURITY_CLASSES),
+    rateClass: z.enum(RATE_CLASSES).nullable(),
+    /// Set when the host groups several member commands under one voice
+    /// tool (e.g. `window_control`); lets the canvas collapse the
+    /// members into a single configurable action.
+    voiceGroup: z.string().optional(),
+    voiceGroupParams: z.record(z.string(), z.string()).optional(),
+  })
+  .passthrough();
+export type WorkflowActionEntry = z.infer<typeof WorkflowActionEntrySchema>;
+
+/// Full `workflow.catalog` host response.
+export const WorkflowCatalogResponseSchema = z
+  .object({
+    bridgeVersion: z.string(),
+    catalogSchema: z.number().int().min(1),
+    brand: z.string(),
+    actions: z.array(WorkflowActionEntrySchema),
+  })
+  .passthrough();
+export type WorkflowCatalogResponse = z.infer<typeof WorkflowCatalogResponseSchema>;
