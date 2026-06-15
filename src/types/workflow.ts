@@ -691,3 +691,30 @@ export const WorkflowCatalogResponseSchema = z
   })
   .passthrough();
 export type WorkflowCatalogResponse = z.infer<typeof WorkflowCatalogResponseSchema>;
+
+// ─── Stored workflow record (host CRUD ↔ backend WorkflowView) ──────
+// The persisted row the host returns from `workflow.list` / `workflow.save`
+// (snake_case, mirrors the backend WorkflowView). `document` is the full
+// WorkflowDocument; kept loose here (the canvas validates it with
+// WorkflowDocumentSchema before saving). `.passthrough()` for forward fields.
+
+export const WorkflowRecordSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    document: z.record(z.string(), z.unknown()),
+    doc_sha256: z.string(),
+    rev: z.number().int(),
+    enabled: z.boolean(),
+    source: z.enum(WORKFLOW_SOURCES),
+    install_id: z.string().nullable().optional(),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+  })
+  .passthrough();
+export type WorkflowRecord = z.infer<typeof WorkflowRecordSchema>;
+
+export const WorkflowListResponseSchema = z
+  .object({ workflows: z.array(WorkflowRecordSchema) })
+  .passthrough();
+export type WorkflowListResponse = z.infer<typeof WorkflowListResponseSchema>;

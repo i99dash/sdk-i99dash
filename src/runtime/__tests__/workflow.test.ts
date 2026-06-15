@@ -106,3 +106,60 @@ describe('WorkflowController.catalog', () => {
     await expect(ctl.catalog()).rejects.toBeInstanceOf(InvalidResponseError);
   });
 });
+
+const sampleRecord = {
+  id: '7c2b',
+  name: 'Preheat',
+  document: { workflowId: 'wf_x', name: 'Preheat', nodes: [], edges: [] },
+  doc_sha256: 'abc123',
+  rev: 1,
+  enabled: true,
+  source: 'authored',
+  install_id: null,
+};
+
+describe('WorkflowController CRUD (host-proxied)', () => {
+  it('list() returns the workflow records', async () => {
+    const stub = newStub({ workflows: [sampleRecord] });
+    const out = await new WorkflowController(stub.bridge).list();
+    expect(stub.calls[0]?.name).toBe('workflow.list');
+    expect(out).toHaveLength(1);
+    expect(out[0]?.id).toBe('7c2b');
+  });
+
+  it('save() forwards fields as snake_case', async () => {
+    const stub = newStub(sampleRecord);
+    const rec = await new WorkflowController(stub.bridge).save({
+      name: 'Preheat',
+      document: { workflowId: 'wf_x' },
+      enabled: true,
+      source: 'authored',
+      installId: null,
+    });
+    expect(stub.calls[0]?.name).toBe('workflow.save');
+    const payload = stub.calls[0]?.payload as Record<string, unknown>;
+    expect(payload.install_id).toBeNull();
+    expect(payload.document).toEqual({ workflowId: 'wf_x' });
+    expect(rec.rev).toBe(1);
+  });
+
+  it('setEnabled() calls workflow.setEnabled with the toggle', async () => {
+    const stub = newStub({ ...sampleRecord, enabled: false });
+    await new WorkflowController(stub.bridge).setEnabled('7c2b', false);
+    expect(stub.calls[0]?.name).toBe('workflow.setEnabled');
+    expect((stub.calls[0]?.payload as Record<string, unknown>).enabled).toBe(false);
+  });
+
+  it('remove() calls workflow.delete', async () => {
+    const stub = newStub({ deleted: true });
+    await new WorkflowController(stub.bridge).remove('7c2b');
+    expect(stub.calls[0]?.name).toBe('workflow.delete');
+  });
+
+  it('surfaces a host error envelope as a transport error', async () => {
+    const stub = newStub({ error: 'WORKFLOW_LIMIT_REACHED' });
+    await expect(
+      new WorkflowController(stub.bridge).save({ name: 'x', document: {} }),
+    ).rejects.toThrow(/WORKFLOW_LIMIT_REACHED/);
+  });
+});

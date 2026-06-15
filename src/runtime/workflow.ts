@@ -12,7 +12,14 @@
 ///
 /// Wire shapes are Zod-validated on receipt; see `../types/workflow.ts`.
 
-import { WorkflowCatalogResponseSchema, type WorkflowCatalogResponse } from '../types/workflow.js';
+import {
+  WorkflowCatalogResponseSchema,
+  type WorkflowCatalogResponse,
+  WorkflowListResponseSchema,
+  WorkflowRecordSchema,
+  type WorkflowRecord,
+  type WorkflowSource,
+} from '../types/workflow.js';
 import { type Bridge } from './bridge.js';
 import { BridgeTransportError, InvalidResponseError } from './errors.js';
 
@@ -42,6 +49,66 @@ export class WorkflowController {
     return result.data;
   }
 
+  /// The signed-in user's workflows (full bodies) for the canvas list.
+  /// Host-proxied to the authenticated backend.
+  async list(): Promise<WorkflowRecord[]> {
+    const raw = await this._call('workflow.list', {});
+    _throwIfError(raw, 'workflow.list');
+    const result = WorkflowListResponseSchema.safeParse(raw);
+    if (!result.success) {
+      throw new InvalidResponseError('workflow.list payload did not match schema', result.error);
+    }
+    return result.data.workflows;
+  }
+
+  /// Create (omit `id`) or update (pass `id`) a workflow. The host
+  /// proxies to the authenticated backend, which re-validates the
+  /// document; the canvas should validate locally first with
+  /// `parseWorkflowDocument` / `assessWorkflowSupport`.
+  async save(input: {
+    id?: string;
+    name: string;
+    document: Record<string, unknown>;
+    enabled?: boolean;
+    source?: WorkflowSource;
+    installId?: string | null;
+  }): Promise<WorkflowRecord> {
+    const raw = await this._call('workflow.save', {
+      id: input.id,
+      name: input.name,
+      document: input.document,
+      enabled: input.enabled,
+      source: input.source,
+      install_id: input.installId,
+    });
+    _throwIfError(raw, 'workflow.save');
+    const result = WorkflowRecordSchema.safeParse(raw);
+    if (!result.success) {
+      throw new InvalidResponseError('workflow.save payload did not match schema', result.error);
+    }
+    return result.data;
+  }
+
+  /// Arm / disarm a workflow without re-sending its document.
+  async setEnabled(id: string, enabled: boolean): Promise<WorkflowRecord> {
+    const raw = await this._call('workflow.setEnabled', { id, enabled });
+    _throwIfError(raw, 'workflow.setEnabled');
+    const result = WorkflowRecordSchema.safeParse(raw);
+    if (!result.success) {
+      throw new InvalidResponseError(
+        'workflow.setEnabled payload did not match schema',
+        result.error,
+      );
+    }
+    return result.data;
+  }
+
+  /// Delete a workflow.
+  async remove(id: string): Promise<void> {
+    const raw = await this._call('workflow.delete', { id });
+    _throwIfError(raw, 'workflow.delete');
+  }
+
   private async _call(handler: string, payload: unknown): Promise<unknown> {
     const api = _hostApi(this.bridge);
     try {
@@ -49,6 +116,15 @@ export class WorkflowController {
     } catch (cause) {
       throw new BridgeTransportError(`${handler} bridge call failed`, cause);
     }
+  }
+}
+
+/// The host write handlers return `{error: ...}` on a backend failure
+/// (auth, validation, cap, disabled). Surface it as a transport error
+/// so callers don't mistake an error envelope for a record.
+function _throwIfError(raw: unknown, op: string): void {
+  if (raw && typeof raw === 'object' && 'error' in raw) {
+    throw new BridgeTransportError(`${op}: ${String((raw as { error: unknown }).error)}`, raw);
   }
 }
 

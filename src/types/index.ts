@@ -122,6 +122,10 @@ export {
   type WorkflowActionEntry,
   WorkflowCatalogResponseSchema,
   type WorkflowCatalogResponse,
+  WorkflowRecordSchema,
+  type WorkflowRecord,
+  WorkflowListResponseSchema,
+  type WorkflowListResponse,
 } from './workflow.js';
 
 export {
