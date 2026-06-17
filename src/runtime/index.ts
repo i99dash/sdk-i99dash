@@ -74,6 +74,7 @@ export {
   type SurfaceCreateResult,
   type SurfaceSnapshot,
 } from './surface.js';
+export { WorkflowController } from './workflow.js';
 export {
   FamilyOpError,
   FamilyUnavailableError,

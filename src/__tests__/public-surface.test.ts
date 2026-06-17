@@ -64,6 +64,7 @@ const EXPECTED_PUBLIC_SYMBOLS = [
   'resolveHostApi',
   'CAR_MAX_NAMES',
   'CarController',
+  'WorkflowController',
   'BridgeTimeoutError',
   'BridgeTransportError',
   'InvalidResponseError',
