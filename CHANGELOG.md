@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [7.1.1](https://github.com/i99dash/sdk-i99dash/compare/v7.1.0...v7.1.1) (2026-06-17)
+
+
+### Bug Fixes
+
+* **release:** repository/homepage/bugs URLs → sdk-i99dash (npm provenance E422) ([221e829](https://github.com/i99dash/sdk-i99dash/commit/221e82913023827ac9bfc30e93a3b74c452c7180))
+
 ## [7.1.0](https://github.com/i99dash/sdk-i99dash/compare/v7.0.0...v7.1.0) (2026-06-17)
 
 
