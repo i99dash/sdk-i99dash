@@ -55,6 +55,25 @@ describe('MiniAppManifestSchema', () => {
     expect(parsed.description).toBeUndefined();
   });
 
+  describe('requiredEntitlement (tiering)', () => {
+    it('omits to undefined → free app', () => {
+      const parsed = MiniAppManifestSchema.parse(valid);
+      expect(parsed.requiredEntitlement).toBeUndefined();
+    });
+
+    it('PRESERVES the key (not stripped) so it rides publish into manifest_json', () => {
+      const parsed = MiniAppManifestSchema.parse({
+        ...valid,
+        requiredEntitlement: 'apps.premium',
+      });
+      expect(parsed.requiredEntitlement).toBe('apps.premium');
+    });
+
+    it('rejects an empty entitlement key', () => {
+      expect(() => MiniAppManifestSchema.parse({ ...valid, requiredEntitlement: '' })).toThrow();
+    });
+  });
+
   describe('icon path', () => {
     it('rejects absolute http URL (was the old shape)', () => {
       expect(() =>

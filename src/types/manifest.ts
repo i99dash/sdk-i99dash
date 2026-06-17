@@ -232,6 +232,15 @@ export const MiniAppManifestSchema = z.object({
   /// vehicle-compat gate in `requires`; `evaluateCompatibility()`
   /// deliberately does not consider it.
   privileged: z.boolean().default(false),
+
+  /// Tiering — the entitlement key a user must hold to install/launch
+  /// this app (e.g. `'apps.premium'`). Omit ⇒ free (the common case).
+  /// Defined here (rather than stripped as an unknown key) so it
+  /// survives `loadManifest` + publish into the stored `manifest_json`;
+  /// the backend persists it verbatim and the catalog read gates
+  /// install/launch on it. Free-form feature key, ≤ 64 chars; kept open
+  /// (not an enum) so a new bundle key never needs an SDK release.
+  requiredEntitlement: z.string().min(1).max(64).optional(),
 });
 
 export type MiniAppManifest = z.infer<typeof MiniAppManifestSchema>;
