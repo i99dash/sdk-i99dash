@@ -2,6 +2,13 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [7.2.0](https://github.com/i99dash/sdk-i99dash/compare/v7.1.1...v7.2.0) (2026-06-17)
+
+
+### Features
+
+* **manifest:** add optional requiredEntitlement (premium tiering) ([24f4790](https://github.com/i99dash/sdk-i99dash/commit/24f4790b3a32c1ef3dc582492d1f7939855551b4))
+
 ## [7.1.1](https://github.com/i99dash/sdk-i99dash/compare/v7.1.0...v7.1.1) (2026-06-17)
 
 
