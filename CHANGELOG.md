@@ -2,6 +2,16 @@
 
 All notable changes to the `i99dash` package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [7.1.0](https://github.com/i99dash/sdk-i99dash/compare/v7.0.0...v7.1.0) (2026-06-17)
+
+
+### Features
+
+* **runtime:** workflow.catalog action-palette schema + WorkflowController ([31bf34b](https://github.com/i99dash/sdk-i99dash/commit/31bf34b1768c0fc76878460b1b004c090df5ad34))
+* **runtime:** WorkflowController CRUD (list/save/setEnabled/remove) ([b1d9397](https://github.com/i99dash/sdk-i99dash/commit/b1d9397a64aa9dcd1812cf95db13ebc1e2c9aeaa))
+* **sdk:** workflow template controller methods + schemas (sharing lane) ([c413bf0](https://github.com/i99dash/sdk-i99dash/commit/c413bf01648c29ca2d3286eb4a1cf0979ce22bec))
+* **types:** canonical WorkflowDocument schema for the workflow canvas ([014cb77](https://github.com/i99dash/sdk-i99dash/commit/014cb773c7e49423277b8abf938d153d2e81725b))
+
 ## [7.0.0](https://github.com/i99dash/i99dash-sdk/compare/v6.3.1...v7.0.0) (2026-06-11)
 
 
