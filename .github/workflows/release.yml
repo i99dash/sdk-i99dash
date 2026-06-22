@@ -58,7 +58,7 @@ jobs:
       BACKEND_REPO_PAT: ${{ secrets.BACKEND_REPO_PAT }}
       CAR_REPO_PAT: ${{ secrets.CAR_REPO_PAT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: i99dash-sdk
 
@@ -68,7 +68,7 @@ jobs:
       - id: backend-checkout
         if: env.BACKEND_REPO_PAT != ''
         continue-on-error: true
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: i99dev/backend-i99dash
           token: ${{ secrets.BACKEND_REPO_PAT }}
@@ -81,7 +81,7 @@ jobs:
       - id: car-checkout
         if: env.CAR_REPO_PAT != ''
         continue-on-error: true
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: i99dev/i99dash
           token: ${{ secrets.CAR_REPO_PAT }}
